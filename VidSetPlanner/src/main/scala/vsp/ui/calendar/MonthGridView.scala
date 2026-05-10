@@ -2,6 +2,7 @@ package vsp.ui.calendar
 
 import scalafx.scene.layout.{GridPane, Priority, VBox, HBox, ColumnConstraints, RowConstraints}
 import scalafx.scene.control.{Button, Label}
+import scalafx.scene.input.MouseEvent
 import scalafx.geometry.{Insets, Pos}
 import java.time.LocalDate
 import vsp.util.DateUtils
@@ -9,7 +10,7 @@ import scalafx.Includes._
 import vsp.ui.dialogs.AddEventDialog
 import vsp.persistence.EventRepository
 
-class MonthGridView(initialDate: LocalDate) extends VBox {
+class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) extends VBox {
   
   spacing = 5
   padding = Insets(10)
@@ -18,7 +19,7 @@ class MonthGridView(initialDate: LocalDate) extends VBox {
   private var selectedDate: LocalDate = LocalDate.now()
 
   // 1. Toolbar
-  private val toolbar = new HBox {
+  /*private val toolbar = new HBox {
     alignment = Pos.CenterRight
     padding = Insets(0, 0, 10, 0)
     val plusBtn = new Button("+") {
@@ -40,7 +41,7 @@ class MonthGridView(initialDate: LocalDate) extends VBox {
       }
     }
     children = Seq(plusBtn)
-  }
+  }*/
 
   // 2. Nagłówki dni tygodnia
   private val weekdayHeader = new GridPane {
@@ -69,7 +70,7 @@ class MonthGridView(initialDate: LocalDate) extends VBox {
     })
   }
 
-  children = Seq(toolbar, weekdayHeader, calendarGrid)
+  children = Seq(/*toolbar, */weekdayHeader, calendarGrid)
 
   def refresh(currentMonth: LocalDate): Unit = {
     calendarGrid.children.clear()
@@ -143,22 +144,30 @@ class MonthGridView(initialDate: LocalDate) extends VBox {
           if (!isSelected) style = determineStyle(isSelected, isToday, isCurrentMonth, isHovered = false)
         }
 
-        onMouseClicked = _ => {
-          selectedDate = day
-          refresh(currentMonth)
-          val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL"))
-          val result = dialog.showAndWait()
+        onMouseClicked = (e: MouseEvent) => {
+          if (e.clickCount == 2) {
+            // 1. Obsługa dwukliku -> Widok dnia
+            onDateSelected(day)
+          } else {
+            // 2. Obsługa pojedynczego kliknięcia -> Wybór i ew. dodawanie
+            selectedDate = day
+            refresh(currentMonth)
+            
+            val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL"))
+            val result = dialog.showAndWait()
 
-          result match {
-            case Some(newEvent: vsp.model.CalendarEvent) =>
-              vsp.core.CalendarEventService.addEvent(newEvent) match {
-                case Right(_) => 
-                  println("UI: Sukces!")
-                  refresh(currentMonth)
-                case Left(error) => 
-                  println(s"UI: Błąd walidacji: $error")
-              }
-            case _ => 
+            result match {
+              case Some(newEvent: vsp.model.CalendarEvent) =>
+                vsp.core.CalendarEventService.addEvent(newEvent) match {
+                  case Right(_) => 
+                    println("UI: Sukces!")
+                    refresh(currentMonth)
+                  case Left(error) => 
+                    println(s"UI: Błąd walidacji: $error")
+                }
+              case _ => 
+            }
+
           }
         }
 
