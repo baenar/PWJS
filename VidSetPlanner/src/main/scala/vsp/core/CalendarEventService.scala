@@ -28,4 +28,21 @@ object CalendarEventService {
       case Failure(ex) => Left(s"Błąd usuwania: ${ex.getMessage}")
     }
   }
+
+  def removeAllEvents(): Either[String, Unit] = {
+    // 1. Pobieramy wszystkie aktualne eventy
+    val allEvents = EventRepository.findAll()
+
+    // 2. Mapujemy listę eventów na wyniki ich usuwania
+    // Wynik to List[Either[String, Unit]]
+    val results = allEvents.map(event => removeEvent(event.id))
+
+    // 3. Sprawdzamy, czy którykolwiek z nich zwrócił błąd (Left)
+    val firstError = results.collectFirst { case Left(err) => err }
+
+    firstError match {
+      case Some(error) => Left(s"Wystąpił błąd podczas masowego usuwania: $error")
+      case None        => Right(())
+    }
+  }
 }
