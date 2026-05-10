@@ -1,10 +1,13 @@
 package vsp
 
+import vsp.api.GoogleCalendarClient
 import vsp.core.CalendarEventService
+import vsp.environment.{EnvKeys, EnvLoader}
 import vsp.model.{CalendarEvent, City}
 import vsp.persistence.{CityRepository, FlywayMigrator}
 
 import java.time.LocalDateTime
+import scala.util.{Success, Failure}
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -28,8 +31,26 @@ object Main {
 
     val events = CalendarEventService.getAllEvents()
     println(s"Wszystkie wydarzenia (${events.length}):")
-    events.foreach { e =>
-      println(s"  [${e.id}] ${e.title} @ ${e.city.name} - ${e.startTime} do ${e.endTime}")
+    events.foreach(e =>
+      println(e)
+    )
+
+    val googleEvents = GoogleCalendarClient.fetchEvents(
+      EnvLoader.get(EnvKeys.GoogleCalendarKey),
+      EnvLoader.get(EnvKeys.GoogleCalendarEmail),
+      LocalDateTime.now(),
+      LocalDateTime.now().plusDays(10)
+    )
+    println("Google events:")
+    googleEvents match {
+      case Success(events) if events.isEmpty =>
+        println("Brak wydarzeń w wybranym przedziale czasu.")
+      case Success(events) =>
+        events.foreach { e =>
+          println(e)
+        }
+      case Failure(exception) =>
+        println(s"Błąd podczas pobierania z Google API: ${exception.getMessage}")
     }
   }
 }

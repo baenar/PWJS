@@ -9,7 +9,14 @@ case class CalendarEvent(
   description: String,
   startTime: LocalDateTime,
   endTime: LocalDateTime
-)
+) {
+  override def toString: String = {
+    val date  = startTime.toLocalDate
+    val start = startTime.toLocalTime.withSecond(0).withNano(0)
+    val end   = endTime.toLocalTime.withSecond(0).withNano(0)
+    s"[$id] $title @ ${city.name} ($date, $start – $end)"
+  }
+}
 
 object CalendarEvent {
   def create(
