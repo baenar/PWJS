@@ -3,12 +3,15 @@ package vsp.ui.calendar
 import scalafx.scene.layout.{GridPane, Priority, VBox, HBox, ColumnConstraints, RowConstraints}
 import scalafx.scene.control.{Button, Label}
 import scalafx.scene.input.MouseEvent
+import scalafx.scene.input.MouseButton
 import scalafx.geometry.{Insets, Pos}
 import java.time.LocalDate
 import vsp.util.DateUtils
 import scalafx.Includes._
 import vsp.ui.dialogs.AddEventDialog
 import vsp.persistence.EventRepository
+import vsp.model.CalendarEvent
+import vsp.ui.dialogs.EventDetailsDialog
 
 class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) extends VBox {
   
@@ -16,32 +19,7 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
   padding = Insets(10)
   vgrow = Priority.Always
 
-  private var selectedDate: LocalDate = LocalDate.now()
-
-  // 1. Toolbar
-  /*private val toolbar = new HBox {
-    alignment = Pos.CenterRight
-    padding = Insets(0, 0, 10, 0)
-    val plusBtn = new Button("+") {
-      style = """
-        -fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 18px; 
-        -fx-font-weight: bold; -fx-background-radius: 50; -fx-min-width: 40px; 
-        -fx-min-height: 40px; -fx-cursor: hand;
-      """
-      onAction = _ => {
-        val dialog = new AddEventDialog(selectedDate, vsp.model.City(1, "Warszawa", "PL"))
-        val result = dialog.showAndWait()
-        
-        result match {
-          case Some(newEvent: vsp.model.CalendarEvent) =>
-            EventRepository.save(newEvent)
-            refresh(selectedDate) // Odświeżamy po dodaniu przyciskiem Plus
-          case _ => 
-        }
-      }
-    }
-    children = Seq(plusBtn)
-  }*/
+  var selectedDate: LocalDate = LocalDate.now()
 
   // 2. Nagłówki dni tygodnia
   private val weekdayHeader = new GridPane {
@@ -111,17 +89,15 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
         val visibleEvents = dayEvents.take(MAX_VISIBLE_EVENTS)
         val hiddenCount = dayEvents.size - MAX_VISIBLE_EVENTS
 
-        val eventLabels = visibleEvents.map { event =>
+        val eventLabels = dayEvents.take(MAX_VISIBLE_EVENTS).map { event =>
           new Label(event.title) {
             maxWidth = Double.MaxValue
-            style = """
-              -fx-background-color: #d1ecf1; 
-              -fx-text-fill: #0c5460; 
-              -fx-font-size: 10px; 
-              -fx-padding: 1 4 1 4; 
-              -fx-background-radius: 3;
-            """
-            ellipsisString = "..."
+            style = """...Twoje style..."""
+            
+            onMouseClicked = (e: MouseEvent) => {
+              e.consume() // STOP: nie wybieraj dnia pod spodem!
+              handleEventInteraction(event, currentMonth)
+            }
           }
         }
 
@@ -145,31 +121,31 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
         }
 
         onMouseClicked = (e: MouseEvent) => {
-          if (e.clickCount == 2) {
-            // 1. Obsługa dwukliku -> Widok dnia
-            onDateSelected(day)
-          } else {
-            // 2. Obsługa pojedynczego kliknięcia -> Wybór i ew. dodawanie
-            selectedDate = day
-            refresh(currentMonth)
+          e.button match {
             
-            val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL"))
-            val result = dialog.showAndWait()
+            case MouseButton.PRIMARY =>
+                selectedDate = day
+                refresh(currentMonth)
+              
+            case MouseButton.SECONDARY =>
+              val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL"))
+              val result = dialog.showAndWait()
 
-            result match {
-              case Some(newEvent: vsp.model.CalendarEvent) =>
-                vsp.core.CalendarEventService.addEvent(newEvent) match {
-                  case Right(_) => 
-                    println("UI: Sukces!")
-                    refresh(currentMonth)
-                  case Left(error) => 
-                    println(s"UI: Błąd walidacji: $error")
-                }
-              case _ => 
-            }
-
+              result match {
+                case Some(newEvent: vsp.model.CalendarEvent) =>
+                  vsp.core.CalendarEventService.addEvent(newEvent) match {
+                    case Right(_) => 
+                      println("UI: Sukces dodawania prawym przyciskiem!")
+                      refresh(currentMonth) // Odśwież, żeby zobaczyć nowy pasek
+                    case Left(error) => 
+                      println(s"UI: Błąd walidacji: $error")
+                  }
+                case _ => // Anulowano dialog
+              }
+            case _ => 
           }
         }
+    
 
         // Łączymy numer dnia z etykietami wydarzeń
         children = Seq(
@@ -196,6 +172,28 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
                  else "-fx-border-color: #ddd;"
     s"$base $background $border"
   }
+
+  private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
+  val details = new EventDetailsDialog(event)
+  details.showAndWait() match {
+    case Some("DELETE") =>
+      vsp.core.CalendarEventService.removeEvent(event.id)
+      refresh(currentMonth)
+    case Some("EDIT") =>
+      // Otwieramy AddEventDialog (możesz go później rozbudować o edycję)
+      val editDlg = new AddEventDialog(event.startTime.toLocalDate, event.city)
+    case Some(updated: vsp.model.CalendarEvent) => // Dodaliśmy typ po dwukropku
+      vsp.core.CalendarEventService.addEvent(updated) match {
+        case Right(_) => 
+          vsp.core.CalendarEventService.removeEvent(event.id)
+          refresh(currentMonth)
+        case Left(error) => 
+          println(s"Błąd edycji: $error")
+      }
+    case _ =>
+  }
+}
+
 
   refresh(initialDate)
 }

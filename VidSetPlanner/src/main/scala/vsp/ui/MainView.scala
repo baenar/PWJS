@@ -85,7 +85,9 @@ class MainView extends BorderPane {
         -fx-min-height: 45px; -fx-cursor: hand;
       """
       onAction = _ => {
-        val dialog = new AddEventDialog(currentActiveDate, vsp.model.City(1, "Warszawa", "PL"))
+        val dateToPlan = if (isMonthMode) monthView.selectedDate else currentActiveDate
+
+        val dialog = new AddEventDialog(dateToPlan, vsp.model.City(1, "Warszawa", "PL"))
         dialog.showAndWait() match {
           case Some(ev: vsp.model.CalendarEvent) => 
             vsp.core.CalendarEventService.addEvent(ev)
@@ -122,6 +124,8 @@ class MainView extends BorderPane {
   }
 
   private def switchToDayView(): Unit = {
+    currentActiveDate = monthView.selectedDate
+
     isMonthMode = false
     updateDateDisplay()
     dayView.refresh(currentActiveDate)

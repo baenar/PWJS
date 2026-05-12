@@ -118,6 +118,8 @@ class DayView(initialDate: LocalDate) extends GridPane {
       -fx-padding: 12;
       -fx-background-radius: 5;
     """
+
+    
     children = Seq(
       new Label(event.title) { 
         style = "-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2980b9;" 
