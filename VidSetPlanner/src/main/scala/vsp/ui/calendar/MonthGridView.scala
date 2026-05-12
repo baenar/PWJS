@@ -93,7 +93,14 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
         val eventLabels = dayEvents.take(MAX_VISIBLE_EVENTS).map { event =>
           new Label(event.title) {
             maxWidth = Double.MaxValue
-            style = """...Twoje style..."""
+            style = s"""
+              -fx-background-color: rgba(52, 152, 219, 0.1); 
+              -fx-border-color: #3498db; 
+              -fx-border-width: 0 0 0 2; 
+              -fx-font-size: 10px; 
+              -fx-font-weight: italics;
+              -fx-padding: 1 4 1 4;
+            """
             
             onMouseClicked = (e: MouseEvent) => {
               e.consume() // STOP: nie wybieraj dnia pod spodem!
@@ -174,30 +181,6 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
     s"$base $background $border"
   }
 
- /* private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
-    val details = new EventDetailsDialog(event)
-  
-    details.showAndWait() match {
-      // 1. Obsługa usuwania (używamy obiektu DeleteAction)
-      case Some(DeleteAction) =>
-        vsp.core.CalendarEventService.removeEvent(event.id)
-        refresh(currentMonth)
-
-      // 2. Obsługa zapisu (używamy SaveAction i nowej metody updateEvent)
-      case Some(SaveAction(updatedEvent)) =>
-        vsp.core.CalendarEventService.updateEvent(updatedEvent) match {
-          case Right(_) => 
-            println("UI: Pomyślnie zaktualizowano dane w bazie.")
-            refresh(currentMonth)
-          case Left(error) => 
-            println(s"UI: Błąd aktualizacji: $error")
-            // Możesz tu dodać Alert, jeśli walidacja nie przejdzie
-        }
-        
-      case _ => // Użytkownik zamknął okno lub kliknął Cancel
-    }
-    
-  }*/
   private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
     val details = new EventDetailsDialog(event)
     

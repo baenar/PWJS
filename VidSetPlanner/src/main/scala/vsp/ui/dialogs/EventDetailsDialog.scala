@@ -22,13 +22,11 @@ class EventDetailsDialog(initialEvent: CalendarEvent) extends Dialog[Unit] {
   
   dialogPane().buttonTypes = Seq(editButtonType, saveButtonType, cancelButtonType, deleteButtonType, closeButtonType)
 
-  // Pobieramy instancje przycisków, aby móc nimi sterować
   val editBtn   = dialogPane().lookupButton(editButtonType)
   val saveBtn   = dialogPane().lookupButton(saveButtonType)
   val cancelBtn = dialogPane().lookupButton(cancelButtonType)
   val deleteBtn = dialogPane().lookupButton(deleteButtonType)
 
-  // --- KOMPONENTY EDYCJI ---
   val titleInput = new TextField { style = "-fx-font-size: 14px;" }
   val descInput  = new TextArea { prefHeight = 70; wrapText = true }
   
@@ -71,7 +69,6 @@ class EventDetailsDialog(initialEvent: CalendarEvent) extends Dialog[Unit] {
     saveBtn.visible = true; saveBtn.managed = true
     cancelBtn.visible = true; cancelBtn.managed = true
 
-    // Wypełniamy pola aktualnymi danymi
     titleInput.text = currentEvent.title
     descInput.text = currentEvent.description
     sH.text = f"${currentEvent.startTime.getHour}%02d"
@@ -93,21 +90,16 @@ class EventDetailsDialog(initialEvent: CalendarEvent) extends Dialog[Unit] {
     )
   }
 
-  // --- OBSŁUGA PRZYCISKÓW (ZATRZYMYWANIE ZAMYKANIA OKNA) ---
-
-  // 1. EDIT
   editBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     showEditMode()
     e.consume() // Zostajemy w oknie
   })
 
-  // 2. CANCEL (wraca do widoku bez zmian)
   cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     showViewMode()
     e.consume() // Zostajemy w oknie
   })
 
-  // 3. SAVE (zapisuje do bazy i zostaje w oknie)
   saveBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     try {
       val updated = currentEvent.copy(

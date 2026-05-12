@@ -9,10 +9,14 @@ import java.util.Locale
 import vsp.core.CalendarEventService
 import vsp.model.CalendarEvent
 import scalafx.Includes._
+import vsp.ui.dialogs.EventDetailsDialog
+import scalafx.scene.input.MouseEvent
 
 // Zmieniamy HBox na GridPane dla lepszej kontroli procentowej
 class DayView(initialDate: LocalDate) extends GridPane {
   
+  var currentViewDate: LocalDate = initialDate
+
   padding = Insets(20)
   hgap = 20
   vgrow = Priority.Always
@@ -119,7 +123,12 @@ class DayView(initialDate: LocalDate) extends GridPane {
       -fx-background-radius: 5;
     """
 
-    
+    onMouseClicked = (e: MouseEvent) => {
+      new EventDetailsDialog(event).showAndWait()
+      refresh(currentViewDate) // Odświeżamy widok po zamknięciu dialogu, na wypadek edycji/usunięcia
+    }
+
+
     children = Seq(
       new Label(event.title) { 
         style = "-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2980b9;" 

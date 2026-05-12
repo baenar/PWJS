@@ -118,6 +118,7 @@ class MainView extends BorderPane {
 
   private def switchToMonthView(): Unit = {
     isMonthMode = true
+    monthView.selectedDate = currentActiveDate // Synchronizujemy datę między widokami
     updateDateDisplay()
     monthView.refresh(currentActiveDate)
     center = monthView
@@ -125,7 +126,7 @@ class MainView extends BorderPane {
 
   private def switchToDayView(): Unit = {
     currentActiveDate = monthView.selectedDate
-
+    dayView.currentViewDate = currentActiveDate
     isMonthMode = false
     updateDateDisplay()
     dayView.refresh(currentActiveDate)
