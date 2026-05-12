@@ -45,4 +45,15 @@ object CalendarEventService {
       case None        => Right(())
     }
   }
+
+  def updateEvent(event: CalendarEvent): Either[String, Unit] = {
+    // Najpierw sprawdzamy, czy dane są poprawne (np. czy tytuł nie jest pusty)
+    vsp.core.Validator.validate(event).flatMap { _ =>
+      // Jeśli walidacja przejdzie, wysyłamy do repozytorium
+      EventRepository.update(event) match {
+        case scala.util.Success(_)  => Right(())
+        case scala.util.Failure(ex) => Left(s"Błąd bazy danych: ${ex.getMessage}")
+      }
+    }
+  }
 }

@@ -65,4 +65,22 @@ object EventRepository {
       stmt.executeUpdate()
     }.map(_ => ())
   }
+
+  def update(event: CalendarEvent): Try[Unit] = {
+    val sql =
+      """UPDATE calendar_events 
+        |SET title = ?, city_id = ?, description = ?, start_time = ?, end_time = ? 
+        |WHERE id = ?""".stripMargin
+
+    Using(connect()) { conn =>
+      val stmt: PreparedStatement = conn.prepareStatement(sql)
+      stmt.setString(1, event.title)
+      stmt.setInt(2, event.city.id)
+      stmt.setString(3, event.description)
+      stmt.setString(4, event.startTime.toString)
+      stmt.setString(5, event.endTime.toString)
+      stmt.setInt(6, event.id) // To ID mówi bazie, który konkretnie wiersz nadpisać
+      stmt.executeUpdate()
+    }.map(_ => ())
+  }
 }

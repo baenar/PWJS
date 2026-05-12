@@ -12,6 +12,7 @@ import vsp.ui.dialogs.AddEventDialog
 import vsp.persistence.EventRepository
 import vsp.model.CalendarEvent
 import vsp.ui.dialogs.EventDetailsDialog
+//import vsp.ui.dialogs.{SaveAction, DeleteAction}
 
 class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) extends VBox {
   
@@ -173,26 +174,41 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
     s"$base $background $border"
   }
 
+ /* private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
+    val details = new EventDetailsDialog(event)
+  
+    details.showAndWait() match {
+      // 1. Obsługa usuwania (używamy obiektu DeleteAction)
+      case Some(DeleteAction) =>
+        vsp.core.CalendarEventService.removeEvent(event.id)
+        refresh(currentMonth)
+
+      // 2. Obsługa zapisu (używamy SaveAction i nowej metody updateEvent)
+      case Some(SaveAction(updatedEvent)) =>
+        vsp.core.CalendarEventService.updateEvent(updatedEvent) match {
+          case Right(_) => 
+            println("UI: Pomyślnie zaktualizowano dane w bazie.")
+            refresh(currentMonth)
+          case Left(error) => 
+            println(s"UI: Błąd aktualizacji: $error")
+            // Możesz tu dodać Alert, jeśli walidacja nie przejdzie
+        }
+        
+      case _ => // Użytkownik zamknął okno lub kliknął Cancel
+    }
+    
+  }*/
   private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
-  val details = new EventDetailsDialog(event)
-  details.showAndWait() match {
-    case Some("DELETE") =>
-      vsp.core.CalendarEventService.removeEvent(event.id)
-      refresh(currentMonth)
-    case Some("EDIT") =>
-      // Otwieramy AddEventDialog (możesz go później rozbudować o edycję)
-      val editDlg = new AddEventDialog(event.startTime.toLocalDate, event.city)
-    case Some(updated: vsp.model.CalendarEvent) => // Dodaliśmy typ po dwukropku
-      vsp.core.CalendarEventService.addEvent(updated) match {
-        case Right(_) => 
-          vsp.core.CalendarEventService.removeEvent(event.id)
-          refresh(currentMonth)
-        case Left(error) => 
-          println(s"Błąd edycji: $error")
-      }
-    case _ =>
+    val details = new EventDetailsDialog(event)
+    
+    // showAndWait() zatrzyma wykonanie tego kodu do momentu, 
+    // aż użytkownik kliknie "Close Window" lub "Delete"
+    details.showAndWait() 
+
+    // Kiedy okno zostanie w końcu zamknięte, odświeżamy cały widok,
+    // aby pokazać wszystkie zmiany zapisane w międzyczasie do bazy.
+    refresh(currentMonth)
   }
-}
 
 
   refresh(initialDate)
