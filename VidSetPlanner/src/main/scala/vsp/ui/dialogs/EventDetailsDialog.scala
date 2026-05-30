@@ -2,7 +2,7 @@ package vsp.ui.dialogs
 
 import scalafx.Includes._
 import scalafx.scene.control._
-import scalafx.scene.layout.{VBox, HBox, Priority, Region}
+import scalafx.scene.layout._
 import scalafx.geometry.{Insets, Pos}
 import vsp.model.CalendarEvent
 import java.time.{LocalDateTime, LocalDate}
@@ -11,88 +11,123 @@ import java.time.format.DateTimeFormatter
 class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () => {}) extends Dialog[Unit] { 
   private var currentEvent = initialEvent
 
-  title = "Event Management"
-  
+  title = "Event Details"
+  headerText = "" // Usuwamy domyślny nagłówek dla estetyki
+
+  // --- STYLE WIZUALNE (Jak w AddEventDialog) ---
+  private val labelStyle = "-fx-text-fill: #374151; -fx-font-size: 13px; -fx-font-weight: bold;"
+  private val inputBaseStyle = "-fx-background-color: white; -fx-border-color: #d1d5db; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;"
+  private val errorInputStyle = "-fx-border-color: #ef4444; -fx-border-width: 1.5;"
+
+  // --- PRZYCISKI ---
   val editButtonType   = new ButtonType("Edit", ButtonBar.ButtonData.Other)
-  val saveButtonType   = new ButtonType("Save", ButtonBar.ButtonData.OKDone)
-  val cancelButtonType = new ButtonType("Cancel Edit", ButtonBar.ButtonData.CancelClose)
-  val deleteButtonType = new ButtonType("Delete", ButtonBar.ButtonData.Other)
-  val closeButtonType  = new ButtonType("Close Window", ButtonBar.ButtonData.Finish)
+  val saveButtonType   = new ButtonType("Save Changes", ButtonBar.ButtonData.OKDone)
+  val cancelButtonType = new ButtonType("Cancel", ButtonBar.ButtonData.CancelClose)
+  val deleteButtonType = new ButtonType("Delete", ButtonBar.ButtonData.Left)
+  val closeButtonType  = new ButtonType("Close", ButtonBar.ButtonData.CancelClose)
   
-  dialogPane().buttonTypes = Seq(editButtonType, saveButtonType, cancelButtonType, deleteButtonType, closeButtonType)
+  dialogPane().buttonTypes = Seq(deleteButtonType, editButtonType, saveButtonType, cancelButtonType, closeButtonType)
 
-  val editBtn   = dialogPane().lookupButton(editButtonType)
-  val saveBtn   = dialogPane().lookupButton(saveButtonType)
-  val cancelBtn = dialogPane().lookupButton(cancelButtonType)
-  val deleteBtn = dialogPane().lookupButton(deleteButtonType)
+  val editBtn   = dialogPane().lookupButton(editButtonType).asInstanceOf[javafx.scene.control.Button]
+  val saveBtn   = dialogPane().lookupButton(saveButtonType).asInstanceOf[javafx.scene.control.Button]
+  val cancelBtn = dialogPane().lookupButton(cancelButtonType).asInstanceOf[javafx.scene.control.Button]
+  val deleteBtn = dialogPane().lookupButton(deleteButtonType).asInstanceOf[javafx.scene.control.Button]
+  val closeBtn  = dialogPane().lookupButton(closeButtonType).asInstanceOf[javafx.scene.control.Button]
 
-  val titleInput = new TextField { style = "-fx-font-size: 14px;" }
-  val descInput  = new TextArea { prefHeight = 70; wrapText = true }
-  val datePicker = new DatePicker { maxWidth = Double.MaxValue }
+  // Aplikowanie stylów do przycisków
+  val primaryBtnStyle = "-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20; -fx-background-radius: 8; -fx-cursor: hand;"
+  val secondaryBtnStyle = "-fx-background-color: white; -fx-text-fill: #374151; -fx-border-color: #d1d5db; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 20; -fx-cursor: hand;"
+  val dangerBtnStyle = "-fx-background-color: white; -fx-text-fill: #ef4444; -fx-border-color: #f87171; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 20; -fx-cursor: hand;"
+
+  editBtn.style = primaryBtnStyle
+  saveBtn.style = primaryBtnStyle
+  closeBtn.style = secondaryBtnStyle
+  cancelBtn.style = secondaryBtnStyle
+  deleteBtn.style = dangerBtnStyle
+
+  // Styling okna głównego
+  dialogPane().style = "-fx-background-color: white; -fx-border-radius: 12; -fx-background-radius: 12;"
+
+  // --- POLA EDYCJI ---
+  val titleInput = new TextField { style = inputBaseStyle }
+  val descInput  = new TextArea { prefRowCount = 3; wrapText = true; style = inputBaseStyle + "-fx-padding: 5;" }
+  val datePicker = new DatePicker { maxWidth = Double.MaxValue; style = inputBaseStyle }
   
-  def createHourSpinner() = new Spinner[Int](0, 23, 12) { prefWidth = 60; editable = true }
-  def createMinuteSpinner() = new Spinner[Int](0, 59, 0) { prefWidth = 60; editable = true }
+  def createSpinner() = new Spinner[Int](0, 59, 0) { prefWidth = 80; editable = true; style = inputBaseStyle }
   
-  val sH = createHourSpinner(); val sM = createMinuteSpinner()
-  val eH = createHourSpinner(); val eM = createMinuteSpinner()
+  val sH = new Spinner[Int](0, 23, 12) { prefWidth = 80; editable = true; style = inputBaseStyle }
+  val sM = createSpinner()
+  val eH = new Spinner[Int](0, 23, 13) { prefWidth = 80; editable = true; style = inputBaseStyle }
+  val eM = createSpinner()
 
-  // Automatyzacja z AddEventDialog
   sH.value.onChange { (_, _, newHour) => eH.getValueFactory.setValue((newHour + 1) % 24) }
   sM.value.onChange { (_, _, newMinute) => eM.getValueFactory.setValue(newMinute) }
 
-  // Kontenery dla czasu wyciągnięte wyżej, żebyśmy mogli podświetlać je na czerwono
-  val startBox = new HBox(5, sH, new Label(":"), sM) { alignment = Pos.CenterLeft }
-  val endBox = new HBox(5, eH, new Label(":"), eM) { alignment = Pos.CenterLeft }
-  val timeRow = new HBox(15, new Label("From:"), startBox, new Label("To:"), endBox) { alignment = Pos.CenterLeft }
-
-  // Etykieta błędu
   val errorLabel = new Label("") {
-    style = "-fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 12px;"
+    style = "-fx-text-fill: #ef4444; -fx-font-weight: 600; -fx-font-size: 12px;"
     managed = false
     visible = false
   }
 
-  val mainLayout = new VBox(10) { 
-    padding = Insets(25); prefWidth = 400; prefHeight = 460
+  val mainLayout = new VBox(16) { 
+    padding = Insets(10, 20, 20, 20)
+    prefWidth = 420
+    minHeight = 400
   }
   dialogPane().content = mainLayout
 
-  private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+  private val dateFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy")
 
+  // --- TRYB PODGLĄDU (Clean Look) ---
   def showViewMode(): Unit = {
     editBtn.visible = true; editBtn.managed = true
     deleteBtn.visible = true; deleteBtn.managed = true
+    closeBtn.visible = true; closeBtn.managed = true
     saveBtn.visible = false; saveBtn.managed = false
     cancelBtn.visible = false; cancelBtn.managed = false
 
     mainLayout.children.clear()
     mainLayout.children = Seq(
-      new Label("EVENT TITLE") { style = "-fx-font-size: 10px; -fx-text-fill: #bdc3c7; -fx-font-weight: bold;" },
-      new Label(currentEvent.title) { style = "-fx-font-size: 18px; -fx-font-weight: bold;" },
-      new Separator(),
-      new Label("TIME & PLACE") { style = "-fx-font-size: 10px; -fx-text-fill: #bdc3c7; -fx-font-weight: bold;" },
-      new Label(s"📅 ${currentEvent.startTime.toLocalDate.format(dateFormatter)}") { style = "-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" },
-      new Label(s"🕒 ${currentEvent.startTime.toLocalTime} - ${currentEvent.endTime.toLocalTime}") { style = "-fx-font-size: 14px;" },
-      new Label(s"📍 ${currentEvent.city.name}") { style = "-fx-font-size: 14px; -fx-text-fill: #2c3e50;" }, 
-      new Separator(),
-      new Label("DESCRIPTION") { style = "-fx-font-size: 10px; -fx-text-fill: #bdc3c7; -fx-font-weight: bold;" },
-      new Label(if(currentEvent.description.isEmpty) "No description" else currentEvent.description) { wrapText = true }
+      new VBox(4,
+        new Label(currentEvent.title) { style = "-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;" },
+        new Label(s"📍 ${currentEvent.city.name}") { style = "-fx-font-size: 13px; -fx-text-fill: #6b7280; -fx-font-weight: 500;" }
+      ),
+      new Region { prefHeight = 10 },
+      new VBox(10,
+        new HBox(12,
+          new Label("📅") { style = "-fx-font-size: 18px;" },
+          new Label(currentEvent.startTime.toLocalDate.format(dateFormatter)) { style = "-fx-font-size: 15px; -fx-text-fill: #374151;" }
+        ),
+        new HBox(12,
+          new Label("🕒") { style = "-fx-font-size: 18px;" },
+          new Label(s"${currentEvent.startTime.toLocalTime} — ${currentEvent.endTime.toLocalTime}") { style = "-fx-font-size: 15px; -fx-text-fill: #374151;" }
+        )
+      ),
+      new Region { prefHeight = 10 },
+      new VBox(6, 
+        new Label("Description") { style = labelStyle },
+        new Label(if(currentEvent.description.isEmpty) "No description provided." else currentEvent.description) { 
+          wrapText = true
+          style = "-fx-text-fill: #4b5563; -fx-font-size: 14px; -fx-line-spacing: 0.3em;"
+        }
+      )
     )
   }
 
+  // --- TRYB EDYCJI (Formularz) ---
   def showEditMode(): Unit = {
     editBtn.visible = false; editBtn.managed = false
     deleteBtn.visible = false; deleteBtn.managed = false
+    closeBtn.visible = false; closeBtn.managed = false
     saveBtn.visible = true; saveBtn.managed = true
     cancelBtn.visible = true; cancelBtn.managed = true
 
-    // Wypełniamy pola aktualnymi danymi i czyścimy błędy, gdyby jakieś zostały z wcześniej
     errorLabel.visible = false
     errorLabel.managed = false
-    titleInput.style = "-fx-font-size: 14px;"
-    datePicker.style = ""
-    startBox.style = ""
-    endBox.style = ""
+    titleInput.style = inputBaseStyle
+    datePicker.style = inputBaseStyle
+    val resetTimeStyle = inputBaseStyle + "-fx-pref-width: 80;"
+    sH.style = resetTimeStyle; sM.style = resetTimeStyle; eH.style = resetTimeStyle; eM.style = resetTimeStyle
 
     titleInput.text = currentEvent.title
     descInput.text = currentEvent.description
@@ -105,40 +140,73 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
 
     mainLayout.children.clear()
     mainLayout.children = Seq(
-      new Label("EDIT TITLE") { style = "-fx-font-size: 10px; -fx-text-fill: #3498db; -fx-font-weight: bold;" },
-      titleInput,
-      new Label("EDIT DATE") { style = "-fx-font-size: 10px; -fx-text-fill: #3498db; -fx-font-weight: bold;" },
-      datePicker,
-      new Label("EDIT TIME") { style = "-fx-font-size: 10px; -fx-text-fill: #3498db; -fx-font-weight: bold;" },
-      timeRow, // Wklejamy przygotowany wcześniej wyżej cały kontener
-      new Label(s"Location: ${currentEvent.city.name}") { 
-        style = "-fx-font-size: 11px; -fx-text-fill: #95a5a6; -fx-padding: 2 0 2 0;" 
-      },
-      new Separator(),
-      new Label("EDIT DESCRIPTION") { style = "-fx-font-size: 10px; -fx-text-fill: #3498db; -fx-font-weight: bold;" },
-      descInput,
-      errorLabel // Etykieta błędu ląduje na samym dole
+      new VBox(6, new Label("Event Title") { style = labelStyle }, titleInput),
+      new VBox(6, new Label("Date") { style = labelStyle }, datePicker),
+      new HBox(20,
+        new VBox(6, new Label("Start Time") { style = labelStyle }, new HBox(5, sH, new Label(":") { alignment = Pos.Center; style = "-fx-font-weight: bold; -fx-padding: 5 0 0 0;" }, sM)),
+        new VBox(6, new Label("End Time") { style = labelStyle }, new HBox(5, eH, new Label(":") { alignment = Pos.Center; style = "-fx-font-weight: bold; -fx-padding: 5 0 0 0;" }, eM))
+      ),
+      new VBox(6, new Label("Location") { style = labelStyle }, 
+        new Label(currentEvent.city.name) { 
+          style = inputBaseStyle + "-fx-background-color: #f3f4f6; -fx-text-fill: #6b7280;" // Szare pole read-only
+          maxWidth = Double.MaxValue
+        }
+      ),
+      new VBox(6, new Label("Description") { style = labelStyle }, descInput),
+      errorLabel
     )
   }
 
+  // --- LOGIKA PRZYCISKÓW ---
   editBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     showEditMode()
     e.consume()
   })
 
-  cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    showViewMode()
+cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
+    // 1. ZAWSZE zatrzymujemy domyślne zamknięcie całego okna EventDetailsDialog
     e.consume()
+
+    // 2. Sprawdzamy, czy użytkownik zmienił jakiekolwiek dane
+    val isFormDirty = titleInput.text.value != currentEvent.title || 
+                      descInput.text.value != currentEvent.description || 
+                      datePicker.value.value != currentEvent.startTime.toLocalDate ||
+                      sH.value.value != currentEvent.startTime.getHour || 
+                      sM.value.value != currentEvent.startTime.getMinute ||
+                      eH.value.value != currentEvent.endTime.getHour || 
+                      eM.value.value != currentEvent.endTime.getMinute
+    
+    if (isFormDirty) {
+      val confirmationAlert = new Alert(Alert.AlertType.Confirmation) {
+        title = "Discard Changes"
+        headerText = ""
+        contentText = "Are you sure you want to discard your changes?\nAll unsaved modifications will be lost."
+        dialogPane().style = "-fx-background-color: white; -fx-border-radius: 12; -fx-background-radius: 12;"
+      }
+
+      val result = confirmationAlert.showAndWait()
+      result match {
+        case Some(ButtonType.OK) =>
+          // Użytkownik godzi się na utratę zmian -> wyłączamy tryb edycji
+          showViewMode() 
+        case _ =>
+          // Użytkownik kliknął Cancel w małym okienku -> NIE robimy showViewMode(), 
+          // dzięki czemu zostaje w trybie edycji i może dalej pisać
+      }
+    } else {
+      // Jeśli formularz nie był "brudny" (nic nie zmieniono), od razu wyłączamy tryb edycji bez pytań
+      showViewMode()
+    }
   })
 
-  // --- WALIDACJA W LOCIE DLA TRYBU EDYCJI ---
-  saveBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    
-    // 1. Reset stylów
-    titleInput.style = "-fx-font-size: 14px;"
-    datePicker.style = ""
-    startBox.style = ""
-    endBox.style = ""
+saveBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
+    // 1. ZAWSZE blokujemy domyślne zamykanie okna przez ten przycisk!
+    e.consume()
+
+    titleInput.style = inputBaseStyle
+    datePicker.style = inputBaseStyle
+    val resetTimeStyle = inputBaseStyle + "-fx-pref-width: 80;"
+    sH.style = resetTimeStyle; sM.style = resetTimeStyle; eH.style = resetTimeStyle; eM.style = resetTimeStyle
     errorLabel.visible = false
     errorLabel.managed = false
 
@@ -153,35 +221,27 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
       endDateTime = endDateTime.plusDays(1)
     }
 
-    // 2. Reguła: Pusty tytuł
     if (titleInput.text.value.trim.isEmpty) {
       isValid = false
-      errorMsg = "Title cannot be empty!"
-      titleInput.style = "-fx-font-size: 14px; -fx-border-color: #e74c3c; -fx-border-width: 2; -fx-border-radius: 3;"
-    } 
-    // 3. Reguła SMART: Przeniesienie wydarzenia w przeszłość (dozwolone, jeśli event JUŻ był w przeszłości)
-    else if (startDateTime.isBefore(LocalDateTime.now()) && currentEvent.startTime.isAfter(LocalDateTime.now())) {
+      errorMsg = "Title is required"
+      titleInput.style = inputBaseStyle + errorInputStyle
+    } else if (startDateTime.isBefore(LocalDateTime.now()) && currentEvent.startTime.isAfter(LocalDateTime.now())) {
       isValid = false
-      errorMsg = "Cannot move a future event to the past!"
-      datePicker.style = "-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-border-radius: 3;"
-      startBox.style = "-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-border-radius: 3; -fx-padding: 2;"
-    }
-    // 4. Reguła: Ten sam czas startu i zakończenia
-    else if (startDateTime.isEqual(endDateTime)) {
+      errorMsg = "Cannot move a future event to the past"
+      datePicker.style = inputBaseStyle + errorInputStyle
+    } else if (startDateTime.isEqual(endDateTime)) {
       isValid = false
-      errorMsg = "Event start and end time cannot be exactly the same!"
-      startBox.style = "-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-border-radius: 3; -fx-padding: 2;"
-      endBox.style = "-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-border-radius: 3; -fx-padding: 2;"
+      errorMsg = "Event must have a duration"
+      sH.style = resetTimeStyle + errorInputStyle
+      eH.style = resetTimeStyle + errorInputStyle
     }
 
-    // 5. Decyzja
     if (!isValid) {
       errorLabel.text = errorMsg
       errorLabel.visible = true
       errorLabel.managed = true
-      e.consume() // Błąd: Zatrzymujemy okno
+      // Nie musimy już dawać tutaj e.consume(), bo zrobiliśmy to na samej górze
     } else {
-      // Sukces: Zapisujemy do bazy
       try {
         val updated = currentEvent.copy(
           title = titleInput.text.value.trim,
@@ -193,47 +253,39 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
         vsp.core.CalendarEventService.updateEvent(updated) match {
           case Right(_) =>
             currentEvent = updated 
-            showViewMode()        
+            showViewMode() // Wracamy do trybu podglądu (okno zostaje otwarte)     
             onUpdate()             
           case Left(err) => 
             errorLabel.text = s"Database Error: $err"
             errorLabel.visible = true
             errorLabel.managed = true
-            e.consume() // W razie błędu bazy również zostawiamy okno otwarte
         }
       } catch { 
         case _: Exception => 
           errorLabel.text = "Unexpected error while saving."
           errorLabel.visible = true
           errorLabel.managed = true
-          e.consume()
       }
     }
-    
-    // Jeśli isValid == true i brak błędów z bazy, okno naturalnie przejdzie do trybu widoku
-    if (!isValid) e.consume() 
   })
 
-deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    // 1. Tworzymy okno z potwierdzeniem
+  deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     val confirmationAlert = new Alert(Alert.AlertType.Confirmation) {
       title = "Confirm Deletion"
-      headerText = "Delete Event"
+      headerText = ""
       contentText = s"Do you really want to delete '${currentEvent.title}'?\nThis action cannot be undone."
+      
+      // Styling okna dialogowego alertu, żeby też pasował
+      dialogPane().style = "-fx-background-color: white; -fx-border-radius: 12; -fx-background-radius: 12;"
     }
 
-    // 2. Wyświetlamy okno i czekamy na reakcję
     val result = confirmationAlert.showAndWait()
 
     result match {
       case Some(ButtonType.OK) =>
-        // 3. Użytkownik potwierdził -> Usuwamy z bazy i odświeżamy widoki
         vsp.core.CalendarEventService.removeEvent(currentEvent.id)
         onUpdate()
-        // NIE używamy e.consume() -> pozwalamy głównemu oknu szczegółów się zamknąć
-
       case _ =>
-        // 4. Użytkownik kliknął Cancel lub zamknął okienko X -> Zatrzymujemy akcję!
         e.consume() 
     }
   })

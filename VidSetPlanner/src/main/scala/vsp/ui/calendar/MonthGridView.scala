@@ -202,15 +202,13 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
     s"$base $background $border"
   }
 
-  private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
-    val details = new EventDetailsDialog(event)
+private def handleEventInteraction(event: CalendarEvent, currentMonth: java.time.LocalDate): Unit = {
+    // ZMIANA: Przekazujemy lambdę () => refresh(currentMonth) jako drugi parametr!
+    val details = new EventDetailsDialog(event, () => refresh(currentMonth))
     
-    // showAndWait() zatrzyma wykonanie tego kodu do momentu, 
-    // aż użytkownik kliknie "Close Window" lub "Delete"
     details.showAndWait() 
 
-    // Kiedy okno zostanie w końcu zamknięte, odświeżamy cały widok,
-    // aby pokazać wszystkie zmiany zapisane w międzyczasie do bazy.
+    // To zostawiamy – odświeży kalendarz jeszcze raz po całkowitym zamknięciu okna
     refresh(currentMonth)
   }
 
