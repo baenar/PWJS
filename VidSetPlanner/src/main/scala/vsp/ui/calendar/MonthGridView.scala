@@ -12,7 +12,7 @@ import vsp.ui.dialogs.AddEventDialog
 import vsp.persistence.EventRepository
 import vsp.model.CalendarEvent
 import vsp.ui.dialogs.EventDetailsDialog
-//import vsp.ui.dialogs.{SaveAction, DeleteAction}
+import vsp.ui.dialogs.DailyEventsDialog
 
 class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) extends VBox {
   
@@ -49,7 +49,7 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
     })
   }
 
-  children = Seq(/*toolbar, */weekdayHeader, calendarGrid)
+  children = Seq(weekdayHeader, calendarGrid)
 
   def refresh(currentMonth: LocalDate): Unit = {
     calendarGrid.children.clear()
@@ -93,14 +93,27 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
         val eventLabels = dayEvents.take(MAX_VISIBLE_EVENTS).map { event =>
           new Label(event.title) {
             maxWidth = Double.MaxValue
-            style = s"""
-              -fx-background-color: rgba(52, 152, 219, 0.1); 
-              -fx-border-color: #3498db; 
-              -fx-border-width: 0 0 0 2; 
-              -fx-font-size: 10px; 
-              -fx-font-weight: italics;
-              -fx-padding: 1 4 1 4;
-            """
+            style = if (isSelected) {
+              // WERSJA ZAZNACZONA (Jaśniejszy niebieski tła, biały tekst)
+              """
+                -fx-background-color: #5dade2; 
+                -fx-text-fill: white; 
+                -fx-border-width: 0 0 0 2;
+                -fx-font-size: 10px; 
+                -fx-font-style: italic;
+                -fx-padding: 1 4 1 4;
+              """
+            } else {
+              // WERSJA STANDARDOWA (Twoja oryginalna, przezroczysta z ramką)
+              """
+                -fx-background-color: rgba(52, 152, 219, 0.1); 
+                -fx-border-color: #3498db; 
+                -fx-border-width: 0 0 0 2; 
+                -fx-font-size: 10px; 
+                -fx-font-style: italic;
+                -fx-padding: 1 4 1 4;
+              """
+            }
             
             onMouseClicked = (e: MouseEvent) => {
               e.consume() // STOP: nie wybieraj dnia pod spodem!
@@ -118,6 +131,14 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
               -fx-font-weight: bold;
               -fx-padding: 1 4 1 4;
             """
+
+            onMouseClicked = (e: MouseEvent) => {
+              e.consume() // STOP: nie wybieraj dnia pod spodem!
+              val dialog = new DailyEventsDialog(day, () => refresh(currentMonth))
+              dialog.showAndWait()
+            
+              refresh(currentMonth) // Odśwież, by pokazać ewentualne zmiany po edycji/usunięciu wydarzeń
+            }
           })
         } else Nil
 
