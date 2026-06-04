@@ -47,7 +47,7 @@ object CalendarEventGoogleOps {
       CalendarEvent(
         id          = 0,
         title       = Option(gEvent.getSummary).getOrElse("(No title provided)"),
-        city        = City(0, Option(gEvent.getLocation).getOrElse("Somewhere?"), ""),
+        city        = City(0, Option(gEvent.getLocation).getOrElse("Somewhere?"), "", 0.0, 0.0),
         description = Option(gEvent.getDescription).getOrElse(""),
         startTime   = resolveStart(),
         endTime     = resolveEnd()

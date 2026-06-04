@@ -1,10 +1,10 @@
 package vsp
 
-import vsp.api.GoogleCalendarClient
-import vsp.core.CalendarEventService
+import vsp.api.{GoogleCalendarClient, WeatherClient, WeatherResult}
+import vsp.core.{CalendarEventService, CityService}
 import vsp.environment.{EnvKeys, EnvLoader}
-import vsp.model.{CalendarEvent, City}
-import vsp.persistence.{CityRepository, FlywayMigrator}
+import vsp.model.CalendarEvent
+import vsp.persistence.FlywayMigrator
 
 import java.time.LocalDateTime
 import scala.util.{Success, Failure}
@@ -13,16 +13,30 @@ object Main {
   def main(args: Array[String]): Unit = {
     FlywayMigrator.migrate()
 
-    val cities = CityRepository.findAll()
-    val warszawa = cities.find(_.name == "Warszawa").getOrElse(City(1, "Warszawa", "PL"))
+    val city = CityService.resolveCity("Warszawa") match {
+      case Right(c)  => c
+      case Left(err) =>
+        println(s"Nie udało się ustalić miasta: $err")
+        return
+    }
 
-    val event = CalendarEvent.create(
+    val baseEvent = CalendarEvent.create(
       title = "Sesja zdjęciowa - Park Saski",
-      city = warszawa,
+      city = city,
       description = "!ważne!",
       startTime = LocalDateTime.now().plusDays(3),
       endTime = LocalDateTime.now().plusDays(3).plusHours(4)
     )
+
+    val event = WeatherClient.getWeatherByCityAndDate(city, baseEvent.startTime, baseEvent.lastWeatherUpdate) match {
+      case WeatherResult.Fetched(w, t, at) =>
+        println(f"Pobrano pogodę: $w, $t%.1f°C")
+        baseEvent.copy(weather = Some(w), temperature = Some(t), lastWeatherUpdate = Some(at))
+      case WeatherResult.SkippedPastDate => println("Pogoda pominięta: data w przeszłości"); baseEvent
+      case WeatherResult.SkippedTooFar   => println("Pogoda pominięta: data dalej niż tydzień"); baseEvent
+      case WeatherResult.SkippedFresh    => println("Pogoda pominięta: odświeżano mniej niż 24h temu"); baseEvent
+      case WeatherResult.Error(msg)      => println(s"Błąd pogody: $msg"); baseEvent
+    }
 
     CalendarEventService.addEvent(event) match {
       case Right(_)    => println("Wydarzenie dodane.")

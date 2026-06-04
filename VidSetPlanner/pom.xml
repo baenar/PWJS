@@ -48,6 +48,11 @@
             <artifactId>google-auth-library-oauth2-http</artifactId>
             <version>1.23.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version>
+        </dependency>
     </dependencies>
 
     <build>
