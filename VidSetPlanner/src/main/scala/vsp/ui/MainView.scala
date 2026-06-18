@@ -105,7 +105,7 @@ class MainView extends BorderPane {
       """
       onAction = _ => {
         val dateToPlan = if (viewMode == "MONTH") monthView.selectedDate else currentActiveDate
-        val dialog = new AddEventDialog(dateToPlan, vsp.model.City(1, "Warszawa", "PL"))
+        val dialog = new AddEventDialog(dateToPlan, vsp.model.City(1, "Warszawa", "PL", 52.2297, 21.0122))
         dialog.showAndWait() match {
           case Some(ev: vsp.model.CalendarEvent) => 
             vsp.core.CalendarEventService.addEvent(ev)

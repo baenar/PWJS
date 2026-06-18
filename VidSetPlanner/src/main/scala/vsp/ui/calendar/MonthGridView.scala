@@ -157,7 +157,7 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
                 refresh(currentMonth)
               
             case MouseButton.SECONDARY =>
-              val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL"))
+              val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL", 52.2297, 21.0122))
               val result = dialog.showAndWait()
 
               result match {

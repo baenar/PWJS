@@ -82,16 +82,21 @@ import scalafx.Includes._
 import scalafx.scene.paint.Color
 import vsp.ui.MainView
 import vsp.persistence.FlywayMigrator
-import vsp.core.CalendarEventService
+import vsp.core.{CalendarEventService, CityService} // Dodałem CityService
 import vsp.model.{CalendarEvent, City}
 import vsp.persistence.CityRepository
+import vsp.api.{WeatherClient, WeatherResult, GoogleCalendarClient} // Brakujące API
+import vsp.environment.{EnvKeys, EnvLoader} // Brakujące zmienne środowiskowe
 import java.time.LocalDateTime
+import scala.util.{Try, Success, Failure} // Brakująca obsługa błędów
 
 object Main extends JFXApp3 {
 
   override def start(): Unit = {
+    // 1. Migracja bazy danych
     FlywayMigrator.migrate()
 
+    // 2. Pobieranie / Testowanie logiki API (tylko do konsoli)
     val city = CityService.resolveCity("Warszawa") match {
       case Right(c)  => c
       case Left(err) =>
@@ -124,26 +129,35 @@ object Main extends JFXApp3 {
 
     val events = CalendarEventService.getAllEvents()
     println(s"Wszystkie wydarzenia (${events.length}):")
-    events.foreach(e =>
-      println(e)
-    )
+    events.foreach(e => println(e))
 
-    val googleEvents = GoogleCalendarClient.fetchEvents(
-      EnvLoader.get(EnvKeys.GoogleCalendarKey),
-      EnvLoader.get(EnvKeys.GoogleCalendarEmail),
-      LocalDateTime.now(),
-      LocalDateTime.now().plusDays(10)
-    )
-    println("Google events:")
-    googleEvents match {
-      case Success(events) if events.isEmpty =>
-        println("Brak wydarzeń w wybranym przedziale czasu.")
-      case Success(events) =>
-        events.foreach { e =>
-          println(e)
-        }
-      case Failure(exception) =>
-        println(s"Błąd podczas pobierania z Google API: ${exception.getMessage}")
+    // 3. Testowanie Google API
+    try {
+      val googleEvents = GoogleCalendarClient.fetchEvents(
+        EnvLoader.get(EnvKeys.GoogleCalendarKey),
+        EnvLoader.get(EnvKeys.GoogleCalendarEmail),
+        LocalDateTime.now(),
+        LocalDateTime.now().plusDays(10)
+      )
+      println("Google events:")
+      googleEvents match {
+        case Success(evs) if evs.isEmpty =>
+          println("Brak wydarzeń w wybranym przedziale czasu.")
+        case Success(evs) =>
+          evs.foreach { e => println(e) }
+        case Failure(exception) =>
+          println(s"Błąd podczas pobierania z Google API: ${exception.getMessage}")
+      }
+    } catch {
+      case e: Exception => println(s"Google API pominięte (brak pliku .env): ${e.getMessage}")
+    }
+
+    // 4. URUCHOMIENIE INTERFEJSU (Tego brakowało w nowej wersji!)
+    stage = new JFXApp3.PrimaryStage {
+      title = "VidSet Planner"
+      scene = new Scene(1200, 800) {
+        root = new MainView() 
+      }
     }
   }
 }
