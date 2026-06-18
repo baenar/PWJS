@@ -8,6 +8,7 @@ import vsp.model.CalendarEvent
 import java.time.{LocalDateTime, LocalDate}
 import java.time.format.DateTimeFormatter
 import scalafx.scene.image.{Image, ImageView}
+import vsp.ui.util.WeatherIconUtil
 
 class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () => {}) extends Dialog[Unit] { 
   private var currentEvent = initialEvent
@@ -95,7 +96,7 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
     // 2. Sekcja prawa (Wielka pogoda + Tooltip)
     val weatherBox = currentEvent.weather match {
       case Some(w) =>
-        val iconView = getWeatherIcon(w) // Pobieramy nasz graficzny obrazek .png
+        val iconView = WeatherIconUtil.getWeatherIcon(w, 48.0)
         val tempString = currentEvent.temperature.map(t => f"$t%.1f°C").getOrElse("")
         
         val weatherTooltip = new Tooltip {
@@ -165,64 +166,6 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
         }
       )
     )
-  }
-
-// Funkcja mapująca tekst na konkretny plik .png
-  private def getWeatherIcon(weather: String): ImageView = {
-    val w = weather.toLowerCase
-
-    val iconName = w match {
-      // Słońce
-      case x if x.contains("clear") || x.contains("sunny") => "sunny.png"
-      case x if x.contains("mostly sunny")                 => "mostly_sunny.png"
-      
-      // Chmury
-      case x if x.contains("partly cloudy")                => "partly_cloudy.png"
-      case x if x.contains("mostly cloudy")                => "mostly_cloudy_day.png"
-      case x if x.contains("overcast") || x.contains("cloud") => "cloudy.png"
-      
-      // Mgła, dym itp.
-      case x if x.contains("mist") || x.contains("fog") || x.contains("haze") || x.contains("smoke") => "haze_fog_dust_smoke.png"
-      
-      // Deszcz i mżawka
-      case x if x.contains("drizzle")                      => "drizzle.png"
-      case x if x.contains("scattered shower")             => "scattered_showers_day.png"
-      case x if x.contains("heavy rain")                   => "heavy_rain.png"
-      case x if x.contains("rain") || x.contains("shower") => "showers_rain.png"
-      
-      // Burze
-      case x if x.contains("isolated") || x.contains("scattered tstorm") => "isolated_scattered_tstorms.png" // Domniemana nazwa z uciętego screena
-      case x if x.contains("thunder") || x.contains("storm") => "strong_tstorms.png"
-      case x if x.contains("tornado")                      => "tornado.png"
-      
-      // Śnieg i lód
-      case x if x.contains("sleet") || x.contains("hail")  => "sleet_hail.png"
-      case x if x.contains("blizzard")                     => "blizzard.png"
-      case x if x.contains("blowing snow")                 => "blowing_snow.png"
-      case x if x.contains("heavy snow")                   => "heavy_snow.png"
-      case x if x.contains("flurries")                     => "flurries.png"
-      case x if x.contains("snow shower")                  => "snow_showers_snow.png" // Domniemana nazwa
-      case x if x.contains("wintry") || x.contains("mix")  => "wintry_mix_rain_snow.png" // Domniemana nazwa
-      case x if x.contains("snow")                         => "snow_showers_snow.png"
-      
-      // Domyślny obrazek w razie braku dopasowania
-      case _                                               => "partly_cloudy.png" 
-    }
-
-    // Bezpieczne wczytywanie obrazka
-    val stream = getClass.getResourceAsStream(s"/icons/$iconName")
-    val imgView = new ImageView()
-    
-    if (stream != null) {
-      imgView.image = new Image(stream)
-      imgView.fitWidth = 48
-      imgView.fitHeight = 48
-      imgView.preserveRatio = true
-    } else {
-      println(s"[BŁĄD GRAFIKI] Nie znaleziono pliku: /icons/$iconName")
-    }
-    
-    imgView
   }
 
   // --- TRYB EDYCJI (Formularz) ---

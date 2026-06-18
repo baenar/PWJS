@@ -13,6 +13,10 @@ import vsp.core.CalendarEventService
 import vsp.model.CalendarEvent
 import vsp.ui.dialogs.EventDetailsDialog
 import scalafx.Includes._
+import scalafx.scene.image.{Image, ImageView}
+import scalafx.geometry.{Pos, Insets}
+import scalafx.scene.layout.HBox
+import vsp.ui.util.WeatherIconUtil
 
 class DayView(initialDate: LocalDate) extends GridPane {
   
@@ -197,11 +201,51 @@ class DayView(initialDate: LocalDate) extends GridPane {
       refresh(currentViewDate)
     }
 
+    // 1. Sprawdzamy i budujemy element pogodowy
+    val weatherInfo: Seq[scalafx.scene.Node] = event.weather match {
+      case Some(w) =>
+        val iconView = WeatherIconUtil.getWeatherIcon(w, 24.0) 
+        val tempString = event.temperature.map(t => f"$t%.1f°C").getOrElse("")
+        
+        import scalafx.scene.control.Tooltip
+        val weatherTooltip = new Tooltip {
+          text = s"Weather: $w"
+          style = "-fx-font-size: 13px; -fx-background-color: rgba(17, 24, 39, 0.9);"
+        }
+        
+        // NAPRAWA: Opakowujemy sam obrazek w Label, żeby móc przypiąć do niego Tooltip
+        val iconLabel = new Label {
+          graphic = iconView
+          tooltip = weatherTooltip
+        }
+
+        Seq(
+          new Label(" ") { style = "-fx-padding: 0 2 0 2;" }, // Mały odstęp
+          iconLabel, // <-- Używamy naszego nowego opakowanego obrazka
+          new Label(tempString) { 
+            style = "-fx-font-size: 11px; -fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-padding: 0 0 0 4;" 
+            tooltip = weatherTooltip
+          }
+        )
+      case None => 
+        Seq.empty // Brak pogody
+    }
+
+    // 2. Składamy wiersz ze szczegółami (czas, miejsce i doklejona pogoda)
+    val detailsRow = new HBox {
+      alignment = Pos.CenterLeft
+      children = Seq(
+        new Label(s"${event.startTime.toLocalTime} - ${event.endTime.toLocalTime} in ${event.city.name}") { 
+          style = "-fx-font-size: 11px; -fx-text-fill: #bdc3c7;" 
+        }
+      ) ++ weatherInfo
+    }
+
+    // 3. Dodajemy wszystko do kafelka
     children = Seq(
       new Label(event.title) { style = "-fx-font-weight: bold; -fx-text-fill: #34495e;" },
-      new Label(s"${event.startTime.toLocalTime} - ${event.endTime.toLocalTime} in ${event.city.name}") { 
-        style = "-fx-font-size: 11px; -fx-text-fill: #bdc3c7;" 
-      }
+      new scalafx.scene.layout.Region { prefHeight = 4 }, // Lekki odstęp między tytułem a szczegółami
+      detailsRow
     )
   }
 

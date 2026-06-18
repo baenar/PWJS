@@ -11,6 +11,8 @@ import java.util.Locale
 import vsp.model.CalendarEvent
 import vsp.core.CalendarEventService
 import vsp.ui.dialogs.EventDetailsDialog
+import vsp.ui.util.WeatherIconUtil
+import scalafx.scene.control.Tooltip
 
 class AgendaView(onEventInteraction: () => Unit) extends VBox {
 
@@ -113,11 +115,45 @@ class AgendaView(onEventInteraction: () => Unit) extends VBox {
       }
 
       // --- KARTY WYDARZEŃ DLA DANEGO DNIA ---
+      // --- KARTY WYDARZEŃ DLA DANEGO DNIA ---
       val eventsList = new VBox(10) {
         padding = Insets(10, 0, 20, 10) // Lekkie wcięcie listy pod nagłówkiem
       }
 
+      // Przygotowujemy ładny format czasu (żeby uniknąć pokazywania nanosekund)
+      val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
       dayEvents.foreach { event =>
+        
+        // 1. Sprawdzamy i budujemy element pogodowy dla Agendy
+        val weatherInfo: Seq[scalafx.scene.Node] = event.weather match {
+          case Some(w) =>
+            val iconView = WeatherIconUtil.getWeatherIcon(w, 24.0) 
+            val tempString = event.temperature.map(t => f"$t%.1f°C").getOrElse("")
+            
+            val weatherTooltip = new Tooltip {
+              text = s"Weather: $w"
+              style = "-fx-font-size: 13px; -fx-background-color: rgba(17, 24, 39, 0.9);"
+            }
+            
+            val iconLabel = new Label {
+              graphic = iconView
+              tooltip = weatherTooltip
+            }
+
+            Seq(
+              new Label(" ") { style = "-fx-padding: 0 5 0 5;" }, // Większy odstęp w Agendzie
+              iconLabel,
+              new Label(tempString) { 
+                style = "-fx-font-size: 12px; -fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-padding: 0 0 0 4;" 
+                tooltip = weatherTooltip
+              }
+            )
+          case None => 
+            Seq.empty 
+        }
+
+        // 2. Budujemy główną kartę
         val eventCard = new VBox(5) {
           padding = Insets(15)
           style = """
@@ -128,32 +164,40 @@ class AgendaView(onEventInteraction: () => Unit) extends VBox {
             -fx-cursor: hand;
           """
           
-          // Efekt Hover (podświetlenie po najechaniu myszką)
+          // Efekt Hover
           onMouseEntered = _ => style = style.value.replace("-fx-background-color: #fcfcfc;", "-fx-background-color: #f0f8ff;")
           onMouseExited = _ => style = style.value.replace("-fx-background-color: #f0f8ff;", "-fx-background-color: #fcfcfc;")
 
           onMouseClicked = (e: MouseEvent) => {
             val dialog = new EventDetailsDialog(event, () => {
-              refresh() // Odświeża agendę
-              onEventInteraction() // Przekazuje sygnał wyżej (do MainView)
+              refresh() 
+              onEventInteraction() 
             })
             dialog.showAndWait()
           }
 
           children = Seq(
             new Label(event.title) { style = "-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" },
+            
+            // Pasek ze szczegółami z doklejoną POGODĄ
             new HBox(15) {
+              alignment = Pos.CenterLeft
               children = Seq(
-                new Label(s"🕒 ${event.startTime.toLocalTime} - ${event.endTime.toLocalTime}") { style = "-fx-text-fill: #7f8c8d; -fx-font-size: 12px;" },
-                new Label(s"📍 ${event.city.name}") { style = "-fx-text-fill: #7f8c8d; -fx-font-size: 12px;" }
-              )
+                new Label(s"🕒 ${event.startTime.format(timeFormatter)} - ${event.endTime.format(timeFormatter)}") { 
+                  style = "-fx-text-fill: #7f8c8d; -fx-font-size: 12px;" 
+                },
+                new Label(s"📍 ${event.city.name}") { 
+                  style = "-fx-text-fill: #7f8c8d; -fx-font-size: 12px;" 
+                }
+              ) ++ weatherInfo // <-- Doklejamy przygotowaną pogodę!
             },
+            
             if (event.description.nonEmpty) 
               new Label(event.description) { 
                 style = "-fx-text-fill: #95a5a6; -fx-font-size: 12px; -fx-padding: 5 0 0 0;"
                 wrapText = true
               } 
-            else new Region() // Pusty region jeśli nie ma opisu
+            else new Region()
           )
         }
         eventsList.children.add(eventCard)
