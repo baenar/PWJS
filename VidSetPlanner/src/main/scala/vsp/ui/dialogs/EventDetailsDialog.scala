@@ -7,6 +7,7 @@ import scalafx.geometry.{Insets, Pos}
 import vsp.model.CalendarEvent
 import java.time.{LocalDateTime, LocalDate}
 import java.time.format.DateTimeFormatter
+import scalafx.scene.image.{Image, ImageView}
 
 class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () => {}) extends Dialog[Unit] { 
   private var currentEvent = initialEvent
@@ -78,7 +79,6 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
 
   private val dateFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy")
 
-  // --- TRYB PODGLĄDU (Clean Look) ---
   def showViewMode(): Unit = {
     editBtn.visible = true; editBtn.managed = true
     deleteBtn.visible = true; deleteBtn.managed = true
@@ -86,23 +86,76 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
     saveBtn.visible = false; saveBtn.managed = false
     cancelBtn.visible = false; cancelBtn.managed = false
 
+    // 1. Sekcja lewa (Tytuł i Miasto)
+    val titleBox = new VBox(4,
+      new Label(currentEvent.title) { style = "-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;" },
+      new Label(s"📍 ${currentEvent.city.name}") { style = "-fx-font-size: 13px; -fx-text-fill: #6b7280; -fx-font-weight: 500;" }
+    )
+
+    // 2. Sekcja prawa (Wielka pogoda + Tooltip)
+    val weatherBox = currentEvent.weather match {
+      case Some(w) =>
+        val iconView = getWeatherIcon(w) // Pobieramy nasz graficzny obrazek .png
+        val tempString = currentEvent.temperature.map(t => f"$t%.1f°C").getOrElse("")
+        
+        val weatherTooltip = new Tooltip {
+          text = s"Weather: $w"
+          style = "-fx-font-size: 13px; -fx-background-color: rgba(17, 24, 39, 0.9);"
+        }
+
+        // Najłatwiejszym sposobem na przypięcie dymku Tooltip i cienia do grafiki
+        // jest opakowanie jej w czysty (pusty) Label.
+        val iconLabel = new Label {
+          graphic = iconView
+          tooltip = weatherTooltip
+          style = "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 6, 0, 0, 2);"
+        }
+
+        val tempLabel = new Label(tempString) {
+          style = "-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #3b82f6;"
+          tooltip = weatherTooltip
+        }
+
+        val box = new VBox(2, iconLabel, tempLabel) {
+          alignment = Pos.TopCenter
+          padding = Insets(0, 0, 0, 20)
+        }
+        Some(box)
+
+      case None => None
+    }
+
+    // 3. Łączymy górę za pomocą "sprężyny" (Region), która rozpycha na boki
+    val spacer = new Region { hgrow = Priority.Always }
+    
+    val topHeader = new HBox {
+      alignment = Pos.TopLeft
+      children = weatherBox match {
+        case Some(wBox) => Seq(titleBox, spacer, wBox) // Jeśli jest pogoda, wrzuć ją na prawo
+        case None       => Seq(titleBox)               // Jeśli nie, zostaw sam tytuł
+      }
+    }
+
+    // 4. Podstawowe wiersze (data, czas)
+    val infoRows = Seq(
+      new HBox(12,
+        new Label("📅") { style = "-fx-font-size: 18px;" },
+        new Label(currentEvent.startTime.toLocalDate.format(dateFormatter)) { style = "-fx-font-size: 15px; -fx-text-fill: #374151;" }
+      ),
+      new HBox(12,
+        new Label("🕒") { style = "-fx-font-size: 18px;" },
+        new Label(s"${currentEvent.startTime.toLocalTime} — ${currentEvent.endTime.toLocalTime}") { style = "-fx-font-size: 15px; -fx-text-fill: #374151;" }
+      )
+    )
+
+    // 5. Składamy to w jedną całość
     mainLayout.children.clear()
     mainLayout.children = Seq(
-      new VBox(4,
-        new Label(currentEvent.title) { style = "-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;" },
-        new Label(s"📍 ${currentEvent.city.name}") { style = "-fx-font-size: 13px; -fx-text-fill: #6b7280; -fx-font-weight: 500;" }
-      ),
-      new Region { prefHeight = 10 },
-      new VBox(10,
-        new HBox(12,
-          new Label("📅") { style = "-fx-font-size: 18px;" },
-          new Label(currentEvent.startTime.toLocalDate.format(dateFormatter)) { style = "-fx-font-size: 15px; -fx-text-fill: #374151;" }
-        ),
-        new HBox(12,
-          new Label("🕒") { style = "-fx-font-size: 18px;" },
-          new Label(s"${currentEvent.startTime.toLocalTime} — ${currentEvent.endTime.toLocalTime}") { style = "-fx-font-size: 15px; -fx-text-fill: #374151;" }
-        )
-      ),
+      topHeader, // Nasz nowy, wspaniały pasek z tytułem po lewej i pogodą po prawej!
+      new Separator { padding = Insets(5, 0, 5, 0) }, // Subtelna linia oddzielająca
+      
+      new VBox(10) { children = infoRows },
+      
       new Region { prefHeight = 10 },
       new VBox(6, 
         new Label("Description") { style = labelStyle },
@@ -112,6 +165,64 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
         }
       )
     )
+  }
+
+// Funkcja mapująca tekst na konkretny plik .png
+  private def getWeatherIcon(weather: String): ImageView = {
+    val w = weather.toLowerCase
+
+    val iconName = w match {
+      // Słońce
+      case x if x.contains("clear") || x.contains("sunny") => "sunny.png"
+      case x if x.contains("mostly sunny")                 => "mostly_sunny.png"
+      
+      // Chmury
+      case x if x.contains("partly cloudy")                => "partly_cloudy.png"
+      case x if x.contains("mostly cloudy")                => "mostly_cloudy_day.png"
+      case x if x.contains("overcast") || x.contains("cloud") => "cloudy.png"
+      
+      // Mgła, dym itp.
+      case x if x.contains("mist") || x.contains("fog") || x.contains("haze") || x.contains("smoke") => "haze_fog_dust_smoke.png"
+      
+      // Deszcz i mżawka
+      case x if x.contains("drizzle")                      => "drizzle.png"
+      case x if x.contains("scattered shower")             => "scattered_showers_day.png"
+      case x if x.contains("heavy rain")                   => "heavy_rain.png"
+      case x if x.contains("rain") || x.contains("shower") => "showers_rain.png"
+      
+      // Burze
+      case x if x.contains("isolated") || x.contains("scattered tstorm") => "isolated_scattered_tstorms.png" // Domniemana nazwa z uciętego screena
+      case x if x.contains("thunder") || x.contains("storm") => "strong_tstorms.png"
+      case x if x.contains("tornado")                      => "tornado.png"
+      
+      // Śnieg i lód
+      case x if x.contains("sleet") || x.contains("hail")  => "sleet_hail.png"
+      case x if x.contains("blizzard")                     => "blizzard.png"
+      case x if x.contains("blowing snow")                 => "blowing_snow.png"
+      case x if x.contains("heavy snow")                   => "heavy_snow.png"
+      case x if x.contains("flurries")                     => "flurries.png"
+      case x if x.contains("snow shower")                  => "snow_showers_snow.png" // Domniemana nazwa
+      case x if x.contains("wintry") || x.contains("mix")  => "wintry_mix_rain_snow.png" // Domniemana nazwa
+      case x if x.contains("snow")                         => "snow_showers_snow.png"
+      
+      // Domyślny obrazek w razie braku dopasowania
+      case _                                               => "partly_cloudy.png" 
+    }
+
+    // Bezpieczne wczytywanie obrazka
+    val stream = getClass.getResourceAsStream(s"/icons/$iconName")
+    val imgView = new ImageView()
+    
+    if (stream != null) {
+      imgView.image = new Image(stream)
+      imgView.fitWidth = 48
+      imgView.fitHeight = 48
+      imgView.preserveRatio = true
+    } else {
+      println(s"[BŁĄD GRAFIKI] Nie znaleziono pliku: /icons/$iconName")
+    }
+    
+    imgView
   }
 
   // --- TRYB EDYCJI (Formularz) ---

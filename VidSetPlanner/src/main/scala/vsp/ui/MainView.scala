@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter
 import vsp.ui.calendar.{MonthGridView, DayView, AgendaView}
 import vsp.ui.dialogs.AddEventDialog
 import scalafx.Includes._
+import vsp.api.{WeatherClient, WeatherResult}
 
 class MainView extends BorderPane {
   
@@ -105,12 +106,34 @@ class MainView extends BorderPane {
       """
       onAction = _ => {
         val dateToPlan = if (viewMode == "MONTH") monthView.selectedDate else currentActiveDate
-        val dialog = new AddEventDialog(dateToPlan, vsp.model.City(1, "Warszawa", "PL", 52.2297, 21.0122))
+
+        val dialog = new AddEventDialog(dateToPlan)
         dialog.showAndWait() match {
           case Some(ev: vsp.model.CalendarEvent) => 
-            vsp.core.CalendarEventService.addEvent(ev)
-            refreshCurrentView()
+            println(s"[MAINVIEW] Odebrano event z dialogu: ${ev.title}. Próbuję pobrać pogodę...")
+
+            // 1. Pobieramy pogodę dla nowo utworzonego wydarzenia!
+            val eventWithWeather = WeatherClient.getWeatherByCityAndDate(ev.city, ev.startTime, ev.lastWeatherUpdate) match {
+              case WeatherResult.Fetched(w, t, at) =>
+                println(s"[MAINVIEW] Pogoda pobrana pomyślnie: $w, $t")
+                ev.copy(weather = Some(w), temperature = Some(t), lastWeatherUpdate = Some(at))
+              case other => 
+                println(s"[MAINVIEW] Pogoda pominięta/błąd: $other")
+                ev // Zostawiamy event bez pogody
+            }
+
+            // 2. Zapisujemy do bazy i sprawdzamy, czy się udało
+            vsp.core.CalendarEventService.addEvent(eventWithWeather) match {
+              case Right(_) => 
+                println("[MAINVIEW] Sukces! Wydarzenie zapisane w bazie.")
+                refreshCurrentView() // Odświeżamy kalendarz dopiero po udanym zapisie!
+              case Left(err) => 
+                println(s"[MAINVIEW ERROR] Błąd zapisu do bazy danych: $err")
+                // Opcjonalnie: Możesz tu dodać Alert, żeby pokazać użytkownikowi błąd
+            }
+
           case _ =>
+            println("[MAINVIEW] Anulowano dodawanie wydarzenia.")
         }
       }
     }

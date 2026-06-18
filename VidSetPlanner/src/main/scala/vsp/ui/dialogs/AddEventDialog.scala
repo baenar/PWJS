@@ -7,25 +7,22 @@ import scalafx.geometry.{Insets, Pos}
 import java.time.{LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
 import vsp.model.{CalendarEvent, City}
+import vsp.core.CityService // <-- NOWY IMPORT!
 
-class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[CalendarEvent] {
+// ZMIANA 1: Usuwamy domyślne miasto z konstruktora
+class AddEventDialog(initialDate: LocalDate) extends Dialog[CalendarEvent] {
 
   title = "Add New Event"
-  
-  // Usuwamy standardowy header, by zrobić własny, bardziej estetyczny
   headerText = ""
   
-  // Style CSS dla komponentów (naśladujące Tailwind/React)
   private val labelStyle = "-fx-text-fill: #374151; -fx-font-size: 13px; -fx-font-weight: bold;"
   private val inputBaseStyle = "-fx-background-color: white; -fx-border-color: #d1d5db; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;"
   private val errorInputStyle = "-fx-border-color: #ef4444; -fx-border-width: 1.5;"
 
-  // Przyciski
   val addButtonType = new ButtonType("Add Event", ButtonBar.ButtonData.OKDone)
   val cancelButtonType = new ButtonType("Cancel", ButtonBar.ButtonData.CancelClose)
   dialogPane().buttonTypes = Seq(cancelButtonType, addButtonType)
 
-  // --- POLA FORMULARZA ---
   val titleField = new TextField { 
     promptText = "Enter event title"
     style = inputBaseStyle
@@ -53,12 +50,12 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
   val eH = createSpinner(0, 23, 10)
   val eM = createSpinner(0, 59, 0)
 
-  // Automatyzacja czasu
   sH.value.onChange { (_, _, h) => eH.getValueFactory.setValue((h + 1) % 24) }
   sM.value.onChange { (_, _, m) => eM.getValueFactory.setValue(m) }
 
-  val locationField = new TextField { 
-    promptText = "Add location (optional)"
+  // ZMIANA 2: Pole lokalizacji staje się polem wymaganego Miasta
+  val cityField = new TextField { 
+    promptText = "Enter city (e.g. Warszawa, London)"
     style = inputBaseStyle
   }
 
@@ -75,7 +72,6 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
     visible = false
   }
 
-  // --- UKŁAD FORMULARZA ---
   val content = new VBox(16) {
     padding = Insets(20)
     prefWidth = 400
@@ -87,7 +83,7 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
         new VBox(6, new Label("Start Time") { style = labelStyle }, new HBox(5, sH, new Label(":") { alignment = Pos.Center; style = "-fx-font-weight: bold; -fx-padding: 5 0 0 0;" }, sM)),
         new VBox(6, new Label("End Time") { style = labelStyle }, new HBox(5, eH, new Label(":") { alignment = Pos.Center; style = "-fx-font-weight: bold; -fx-padding: 5 0 0 0;" }, eM))
       ),
-      new VBox(6, new Label("Location") { style = labelStyle }, locationField),
+      new VBox(6, new Label("City") { style = labelStyle }, cityField),
       new VBox(6, new Label("Description") { style = labelStyle }, descArea),
       errorLabel
     )
@@ -95,21 +91,21 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
 
   dialogPane().content = content
 
-  // Styling DialogPane i Buttonów
   dialogPane().style = "-fx-background-color: white; -fx-border-radius: 12; -fx-background-radius: 12;"
   
-  // Stylowanie przycisków po ich renderowaniu
   private val addBtn = dialogPane().lookupButton(addButtonType).asInstanceOf[javafx.scene.control.Button]
   private val cancelBtn = dialogPane().lookupButton(cancelButtonType).asInstanceOf[javafx.scene.control.Button]
 
   addBtn.style = "-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20; -fx-background-radius: 8; -fx-cursor: hand;"
   cancelBtn.style = "-fx-background-color: white; -fx-text-fill: #374151; -fx-border-color: #d1d5db; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 20; -fx-cursor: hand;"
 
-  // --- WALIDACJA ---
+  // ZMIANA 3: Tymczasowa zmienna na miasto (jeśli geokodowanie się powiedzie)
+  private var resolvedCity: Option[City] = None
+
   addBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    // Reset stylów
     titleField.style = inputBaseStyle
     datePicker.style = inputBaseStyle
+    cityField.style = inputBaseStyle // Reset stylu miasta
     val resetTimeStyle = inputBaseStyle + "-fx-pref-width: 80;"
     sH.style = resetTimeStyle; sM.style = resetTimeStyle
     eH.style = resetTimeStyle; eM.style = resetTimeStyle
@@ -123,10 +119,15 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
     var endDT = datePicker.value.value.atTime(eH.value.value, eM.value.value)
     if (endDT.isBefore(startDT)) endDT = endDT.plusDays(1)
 
+    // Walidacja standardowa
     if (titleField.text.value.trim.isEmpty) {
       isValid = false
       errorMsg = "Title is required"
       titleField.style = inputBaseStyle + errorInputStyle
+    } else if (cityField.text.value.trim.isEmpty) {
+      isValid = false
+      errorMsg = "City is required"
+      cityField.style = inputBaseStyle + errorInputStyle
     } else if (startDT.isBefore(LocalDateTime.now())) {
       isValid = false
       errorMsg = "Date/time cannot be in the past"
@@ -138,6 +139,19 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
       eH.style = resetTimeStyle + errorInputStyle
     }
 
+    // ZMIANA 4: Jeśli formularz jest ok, łączymy się z API Mikołaja!
+    if (isValid) {
+      CityService.resolveCity(cityField.text.value.trim) match {
+        case Right(city) => 
+          resolvedCity = Some(city) // Mamy współrzędne!
+        case Left(err) =>
+          isValid = false
+          // Prawdopodobnie wpisano złe miasto lub brak neta
+          errorMsg = "Could not find this city. Please check spelling."
+          cityField.style = inputBaseStyle + errorInputStyle
+      }
+    }
+
     if (!isValid) {
       errorLabel.text = errorMsg
       errorLabel.visible = true
@@ -146,9 +160,9 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
     }
   })
 
+  // Potwierdzenie anulowania
   cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    // Sprawdzamy, czy użytkownik w ogóle coś wpisał (żeby nie irytować go pop-upem, jeśli okno jest całkiem puste)
-    val isFormDirty = titleField.text.value.nonEmpty || descArea.text.value.nonEmpty || locationField.text.value.nonEmpty
+    val isFormDirty = titleField.text.value.nonEmpty || descArea.text.value.nonEmpty || cityField.text.value.nonEmpty
     
     if (isFormDirty) {
       val confirmationAlert = new Alert(Alert.AlertType.Confirmation) {
@@ -161,24 +175,22 @@ class AddEventDialog(initialDate: LocalDate, defaultCity: City) extends Dialog[C
       val result = confirmationAlert.showAndWait()
       result match {
         case Some(ButtonType.OK) =>
-          // Użytkownik chce wyjść -> NIE robimy consume(), pozwalamy oknu naturalnie się zamknąć
-        case _ =>
-          // Użytkownik rozmyślił się i chce dalej pisać -> Zatrzymujemy zamykanie
-          e.consume()
+        case _ => e.consume()
       }
     }
   })
 
-  // Logika zapisu
+  // ZMIANA 5: Przekazujemy prawdzie miasto do bazy
   resultConverter = (bt: ButtonType) => {
-    if (bt == addButtonType) {
+    // resultConverter wykona się tylko jeśli addEventFilter nie zrobił e.consume()
+    if (bt == addButtonType && resolvedCity.isDefined) {
       val start = datePicker.value.value.atTime(sH.value.value, sM.value.value)
       var end = datePicker.value.value.atTime(eH.value.value, eM.value.value)
       if (end.isBefore(start)) end = end.plusDays(1)
 
       CalendarEvent.create(
         title = titleField.text.value.trim,
-        city = defaultCity,
+        city = resolvedCity.get, // <--- Tutaj dodajemy miasto znalezione na mapie
         description = descArea.text.value.trim,
         startTime = start,
         endTime = end

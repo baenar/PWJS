@@ -13,6 +13,7 @@ import vsp.persistence.EventRepository
 import vsp.model.CalendarEvent
 import vsp.ui.dialogs.EventDetailsDialog
 import vsp.ui.dialogs.DailyEventsDialog
+import vsp.api.{WeatherClient, WeatherResult} 
 
 class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) extends VBox {
   
@@ -157,15 +158,28 @@ class MonthGridView(initialDate: LocalDate, onDateSelected: LocalDate => Unit) e
                 refresh(currentMonth)
               
             case MouseButton.SECONDARY =>
-              val dialog = new AddEventDialog(day, vsp.model.City(1, "Warszawa", "PL", 52.2297, 21.0122))
+              val dialog = new AddEventDialog(day)
               val result = dialog.showAndWait()
 
               result match {
                 case Some(newEvent: vsp.model.CalendarEvent) =>
-                  vsp.core.CalendarEventService.addEvent(newEvent) match {
+                  println(s"[MonthGridView] Pobieram pogodę dla: ${newEvent.city.name}...")
+                  
+                  // 1. Wywołanie API pogodowego od Mikołaja (używam pełnych ścieżek, żeby uniknąć błędów importu)
+                  val eventWithWeather = vsp.api.WeatherClient.getWeatherByCityAndDate(newEvent.city, newEvent.startTime, newEvent.lastWeatherUpdate) match {
+                    case vsp.api.WeatherResult.Fetched(w, t, at) =>
+                      println(s"[MonthGridView] Sukces pogody: $w, $t")
+                      newEvent.copy(weather = Some(w), temperature = Some(t), lastWeatherUpdate = Some(at))
+                    case errorOrSkipped =>
+                      println(s"[MonthGridView] Pogoda pominięta/błąd: $errorOrSkipped")
+                      newEvent // Zwracamy event bez zmian, jeśli pogoda nie wypaliła
+                  }
+
+                  // 2. Zapis do bazy Zaktualizowanego wydarzenia (eventWithWeather)
+                  vsp.core.CalendarEventService.addEvent(eventWithWeather) match {
                     case Right(_) => 
                       println("UI: Sukces dodawania prawym przyciskiem!")
-                      refresh(currentMonth) // Odśwież, żeby zobaczyć nowy pasek
+                      refresh(currentMonth) // Odśwież, żeby zobaczyć nowy pasek z ikonką pogody!
                     case Left(error) => 
                       println(s"UI: Błąd walidacji: $error")
                   }
