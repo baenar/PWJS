@@ -1,26 +1,42 @@
 /*package vsp
 
-import vsp.ui.MainView
-import vsp.core.CalendarEventService
-import vsp.model.{CalendarEvent, City}
-import vsp.persistence.{CityRepository, FlywayMigrator}
+import vsp.api.{GoogleCalendarClient, WeatherClient, WeatherResult}
+import vsp.core.{CalendarEventService, CityService}
+import vsp.environment.{EnvKeys, EnvLoader}
+import vsp.model.CalendarEvent
+import vsp.persistence.FlywayMigrator
 
 import java.time.LocalDateTime
+import scala.util.{Success, Failure}
 
 object Main {
   def main(args: Array[String]): Unit = {
     FlywayMigrator.migrate()
 
-    val cities = CityRepository.findAll()
-    val warszawa = cities.find(_.name == "Warszawa").getOrElse(City(1, "Warszawa", "PL"))
+    val city = CityService.resolveCity("Warszawa") match {
+      case Right(c)  => c
+      case Left(err) =>
+        println(s"Nie udało się ustalić miasta: $err")
+        return
+    }
 
-    val event = CalendarEvent.create(
+    val baseEvent = CalendarEvent.create(
       title = "Sesja zdjęciowa - Park Saski",
-      city = warszawa,
+      city = city,
       description = "!ważne!",
       startTime = LocalDateTime.now().plusDays(3),
       endTime = LocalDateTime.now().plusDays(3).plusHours(4)
     )
+
+    val event = WeatherClient.getWeatherByCityAndDate(city, baseEvent.startTime, baseEvent.lastWeatherUpdate) match {
+      case WeatherResult.Fetched(w, t, at) =>
+        println(f"Pobrano pogodę: $w, $t%.1f°C")
+        baseEvent.copy(weather = Some(w), temperature = Some(t), lastWeatherUpdate = Some(at))
+      case WeatherResult.SkippedPastDate => println("Pogoda pominięta: data w przeszłości"); baseEvent
+      case WeatherResult.SkippedTooFar   => println("Pogoda pominięta: data dalej niż tydzień"); baseEvent
+      case WeatherResult.SkippedFresh    => println("Pogoda pominięta: odświeżano mniej niż 24h temu"); baseEvent
+      case WeatherResult.Error(msg)      => println(s"Błąd pogody: $msg"); baseEvent
+    }
 
     CalendarEventService.addEvent(event) match {
       case Right(_)    => println("Wydarzenie dodane.")
@@ -29,8 +45,26 @@ object Main {
 
     val events = CalendarEventService.getAllEvents()
     println(s"Wszystkie wydarzenia (${events.length}):")
-    events.foreach { e =>
-      println(s"  [${e.id}] ${e.title} @ ${e.city.name} - ${e.startTime} do ${e.endTime}")
+    events.foreach(e =>
+      println(e)
+    )
+
+    val googleEvents = GoogleCalendarClient.fetchEvents(
+      EnvLoader.get(EnvKeys.GoogleCalendarKey),
+      EnvLoader.get(EnvKeys.GoogleCalendarEmail),
+      LocalDateTime.now(),
+      LocalDateTime.now().plusDays(10)
+    )
+    println("Google events:")
+    googleEvents match {
+      case Success(events) if events.isEmpty =>
+        println("Brak wydarzeń w wybranym przedziale czasu.")
+      case Success(events) =>
+        events.foreach { e =>
+          println(e)
+        }
+      case Failure(exception) =>
+        println(s"Błąd podczas pobierania z Google API: ${exception.getMessage}")
     }
   }
 
@@ -58,31 +92,58 @@ object Main extends JFXApp3 {
   override def start(): Unit = {
     FlywayMigrator.migrate()
 
-    val cities = CityRepository.findAll()
-    val warszawa = cities.find(_.name == "Warszawa").getOrElse(City(1, "Warszawa", "PL"))
+    val city = CityService.resolveCity("Warszawa") match {
+      case Right(c)  => c
+      case Left(err) =>
+        println(s"Nie udało się ustalić miasta: $err")
+        return
+    }
 
-    val event = CalendarEvent.create(
+    val baseEvent = CalendarEvent.create(
       title = "Sesja zdjęciowa - Park Saski",
-      city = warszawa,
+      city = city,
       description = "!ważne!",
       startTime = LocalDateTime.now().plusDays(3),
       endTime = LocalDateTime.now().plusDays(3).plusHours(4)
     )
+
+    val event = WeatherClient.getWeatherByCityAndDate(city, baseEvent.startTime, baseEvent.lastWeatherUpdate) match {
+      case WeatherResult.Fetched(w, t, at) =>
+        println(f"Pobrano pogodę: $w, $t%.1f°C")
+        baseEvent.copy(weather = Some(w), temperature = Some(t), lastWeatherUpdate = Some(at))
+      case WeatherResult.SkippedPastDate => println("Pogoda pominięta: data w przeszłości"); baseEvent
+      case WeatherResult.SkippedTooFar   => println("Pogoda pominięta: data dalej niż tydzień"); baseEvent
+      case WeatherResult.SkippedFresh    => println("Pogoda pominięta: odświeżano mniej niż 24h temu"); baseEvent
+      case WeatherResult.Error(msg)      => println(s"Błąd pogody: $msg"); baseEvent
+    }
 
     CalendarEventService.addEvent(event) match {
       case Right(_)    => println("Baza danych: Wydarzenie dodane pomyślnie.")
       case Left(error) => println(s"Baza danych: Błąd: $error")
     }
 
-    stage = new JFXApp3.PrimaryStage {
-      title = "VidSetPlanner - Desktop App"
-      width = 900
-      height = 700
-      
-      scene = new Scene {
-        fill = Color.rgb(44, 62, 80)
-        root = new MainView() // Wywołujemy Twój widok z folderu ui
-      }
+    val events = CalendarEventService.getAllEvents()
+    println(s"Wszystkie wydarzenia (${events.length}):")
+    events.foreach(e =>
+      println(e)
+    )
+
+    val googleEvents = GoogleCalendarClient.fetchEvents(
+      EnvLoader.get(EnvKeys.GoogleCalendarKey),
+      EnvLoader.get(EnvKeys.GoogleCalendarEmail),
+      LocalDateTime.now(),
+      LocalDateTime.now().plusDays(10)
+    )
+    println("Google events:")
+    googleEvents match {
+      case Success(events) if events.isEmpty =>
+        println("Brak wydarzeń w wybranym przedziale czasu.")
+      case Success(events) =>
+        events.foreach { e =>
+          println(e)
+        }
+      case Failure(exception) =>
+        println(s"Błąd podczas pobierania z Google API: ${exception.getMessage}")
     }
   }
 }
