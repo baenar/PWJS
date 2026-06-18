@@ -10,6 +10,7 @@ object FlywayMigrator {
     val flyway = Flyway.configure()
       .dataSource(dbUrl, null, null)
       .load()
+
     flyway.migrate()
   }
 }

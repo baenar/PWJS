@@ -2,16 +2,17 @@ package vsp.persistence
 
 object DbConfig {
   /**
-    * Database URL used by repositories and Flyway.
-    *
-    * Defaults to the normal local application database, but tests can override it with:
-    *   -Dvsp.db.url=jdbc:sqlite:target/test-vidsetplanner.db
-    *
-    * This intentionally reads the value dynamically, so tests may set the property
-    * before running migrations/repository calls without touching production code paths.
-    */
+   * Default application database.
+   *
+   * Tests and local experiments can override it without touching production data:
+   *   mvn test -Dvsp.db.url=jdbc:sqlite:target/test-dbs/test.db
+   *
+   * Environment variable fallback is useful in Docker/CI:
+   *   VSP_DB_URL=jdbc:sqlite:/tmp/vidsetplanner.db
+   */
   def url: String =
     Option(System.getProperty("vsp.db.url"))
-      .orElse(Option(System.getenv("VSP_DB_URL")))
+      .filter(_.trim.nonEmpty)
+      .orElse(Option(System.getenv("VSP_DB_URL")).filter(_.trim.nonEmpty))
       .getOrElse("jdbc:sqlite:vidsetplanner.db")
 }
