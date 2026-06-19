@@ -13,7 +13,7 @@ import java.io.FileInputStream
 import java.time.{LocalDateTime, ZoneId}
 import java.util.Collections
 import scala.jdk.CollectionConverters.*
-import scala.util.{Try, Using}
+import scala.util.{Failure, Success, Try, Using}
 
 object GoogleCalendarClient {
   private def buildService(credentialsPath: String): Calendar = {
@@ -64,6 +64,24 @@ object GoogleCalendarClient {
       val service = buildService(credentialsPath)
       val created = service.events().insert(calendarId, event.toGoogleEvent).execute()
       created.getId
+    }
+  }
+
+  // Wysyła wiele eventów naraz, budując service tylko raz
+  // Zwraca wynik (ID lub błąd) dla każdego eventu w tej samej kolejności.
+  def addEvents(
+    credentialsPath: String,
+    calendarId: String,
+    events: List[CalendarEvent]
+  ): List[Try[String]] = {
+    Try(buildService(credentialsPath)) match {
+      case Failure(ex) => events.map(_ => Failure(ex))
+      case Success(service) =>
+        events.map { event =>
+          Try {
+            service.events().insert(calendarId, event.toGoogleEvent).execute().getId
+          }
+        }
     }
   }
 }
