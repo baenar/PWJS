@@ -1,5 +1,6 @@
 package vsp.core
 
+import vsp.api.GoogleEventSync
 import vsp.model.CalendarEvent
 import vsp.persistence.EventRepository
 
@@ -15,16 +16,30 @@ object CalendarEventService {
     Validator.validate(event) match {
       case Right(valid) =>
         EventRepository.save(valid) match {
-          case Success(_)  => Right(())
+          case Success(_)  =>
+            // Po udanym zapisie wysyłamy event także na Google Calendar.
+            GoogleEventSync.onAdded(valid)
+            Right(())
           case Failure(ex) => Left(s"Błąd zapisu: ${ex.getMessage}")
         }
       case Left(err) => Left(err)
     }
   }
 
-  def removeEvent(id: Int): Either[String, Unit] = {
-    EventRepository.deleteById(id) match {
+  def updateWeather(event: CalendarEvent): Either[String, Unit] = {
+    EventRepository.update(event) match {
       case Success(_)  => Right(())
+      case Failure(ex) => Left(s"Błąd zapisu pogody: ${ex.getMessage}")
+    }
+  }
+
+  def removeEvent(id: Int): Either[String, Unit] = {
+    // Pobieramy event przed usunięciem, żeby móc go skasować również z Google.
+    val event = EventRepository.findById(id)
+    EventRepository.deleteById(id) match {
+      case Success(_)  =>
+        event.foreach(GoogleEventSync.onRemoved)
+        Right(())
       case Failure(ex) => Left(s"Błąd usuwania: ${ex.getMessage}")
     }
   }
@@ -48,11 +63,15 @@ object CalendarEventService {
 
   def updateEvent(event: CalendarEvent): Either[String, Unit] = {
     // Najpierw sprawdzamy, czy dane są poprawne (np. czy tytuł nie jest pusty)
-    vsp.core.Validator.validate(event).flatMap { _ =>
-      // Jeśli walidacja przejdzie, wysyłamy do repozytorium
+    Validator.validate(event).flatMap { _ =>
+      // Stan sprzed zmiany - potrzebny, żeby odnaleźć ten event po stronie Google
+      // (tytuł lub czas startu mogły się zmienić).
+      val oldEvent = EventRepository.findById(event.id)
       EventRepository.update(event) match {
-        case scala.util.Success(_)  => Right(())
-        case scala.util.Failure(ex) => Left(s"Błąd bazy danych: ${ex.getMessage}")
+        case Success(_) =>
+          oldEvent.foreach(old => GoogleEventSync.onUpdated(old, event))
+          Right(())
+        case Failure(ex) => Left(s"Błąd bazy danych: ${ex.getMessage}")
       }
     }
   }

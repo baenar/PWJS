@@ -4,7 +4,7 @@ import scalafx.application.JFXApp3
 import scalafx.scene.Scene
 import vsp.ui.MainView
 import vsp.persistence.FlywayMigrator
-import vsp.api.CalendarSync
+import vsp.api.{CalendarSync, WeatherSync}
 
 object Main extends JFXApp3 {
 
@@ -15,7 +15,10 @@ object Main extends JFXApp3 {
     // 2. Aktualizacja danych google calendar (synchronizacja w obie strony)
     CalendarSync.syncOnStartup()
 
-    // 3. Uruchomienie interfejsu
+    // 3. Odświeżenie pogody dla wydarzeń z najbliższego tygodnia
+    WeatherSync.syncOnStartup()
+
+    // 4. Uruchomienie interfejsu
     stage = new JFXApp3.PrimaryStage {
       title = "VidSet Planner"
       scene = new Scene(1200, 800) {

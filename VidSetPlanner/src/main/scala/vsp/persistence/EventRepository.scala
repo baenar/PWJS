@@ -11,6 +11,10 @@ object EventRepository {
     SlickEventRepository.findAll().getOrElse(List())
   }
 
+  def findById(id: Int): Option[CalendarEvent] = {
+    SlickEventRepository.findById(id).toOption.flatten
+  }
+
   def save(event: CalendarEvent): Try[Unit] = {
     SlickEventRepository.save(event).map(_ => ())
   }
