@@ -55,9 +55,7 @@ object CalendarSync {
     val missing   = googleEvents.filterNot(g => localKeys.contains(keyOf(g)))
 
     missing.foreach { event =>
-      // Eventy z Google mają tylko nazwę lokalizacji (city.id = 0),
-      // więc najpierw ustalamy/zapisujemy miasto, żeby przeszła walidacja.
-      CityService.resolveCity(event.city.name) match {
+      CityService.resolveCityFromAddress(event.city.name) match {
         case Right(city) =>
           CalendarEventService.addEvent(event.copy(city = city)) match {
             case Right(_)  => println(s"Pobrano z Google: ${event.title}")
