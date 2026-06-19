@@ -11,6 +11,9 @@ import scala.util.{Failure, Success}
 // Brak konfiguracji (.env) albo błąd Google nie blokuje operacji na bazie - tylko logujemy.
 object GoogleEventSync {
 
+  // Pozwala wyłączyć synchronizację z Google
+  @volatile var enabled: Boolean = true
+
   private def credentials(): Option[(String, String)] = {
     val path    = EnvLoader.get(EnvKeys.GoogleCalendarKey)
     val account = EnvLoader.get(EnvKeys.GoogleCalendarEmail)
@@ -24,7 +27,7 @@ object GoogleEventSync {
   }
 
   def onAdded(event: CalendarEvent): Unit = {
-    if (!inRange(event)) {
+    if (!enabled || !inRange(event)) {
       return
     }
     credentials().foreach { case (path, account) =>
@@ -36,6 +39,9 @@ object GoogleEventSync {
   }
 
   def onUpdated(oldEvent: CalendarEvent, newEvent: CalendarEvent): Unit = {
+    if (!enabled) {
+      return
+    }
     credentials().foreach { case (path, account) =>
       // Szukamy po starym kluczu (tytuł/czas mogły się zmienić).
       GoogleCalendarClient.findEventId(path, account, oldEvent.title, oldEvent.startTime) match {
@@ -58,6 +64,9 @@ object GoogleEventSync {
   }
 
   def onRemoved(event: CalendarEvent): Unit = {
+    if (!enabled) {
+      return
+    }
     credentials().foreach { case (path, account) =>
       GoogleCalendarClient.findEventId(path, account, event.title, event.startTime) match {
         case Success(Some(id)) =>

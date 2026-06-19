@@ -1,6 +1,7 @@
 package vsp
 
 import munit.FunSuite
+import vsp.api.GoogleEventSync
 import vsp.persistence.FlywayMigrator
 
 import java.nio.file.{Files, Path, Paths}
@@ -27,6 +28,7 @@ abstract class TestDatabaseSuite extends FunSuite {
   }
 
   override def beforeEach(context: BeforeEach): Unit = {
+    GoogleEventSync.enabled = false
     Files.createDirectories(dbDir)
     val path = dbPath(context.test.name)
     deleteIfExists(path)

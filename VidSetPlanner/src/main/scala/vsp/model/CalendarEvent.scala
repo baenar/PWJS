@@ -1,6 +1,7 @@
 package vsp.model
 
 import java.time.LocalDateTime
+import java.util.Locale
 
 case class CalendarEvent(
   id: Int,
@@ -19,7 +20,8 @@ case class CalendarEvent(
     val end   = endTime.toLocalTime.withSecond(0).withNano(0)
     val weatherStr = weather match {
       case Some(w) =>
-        val temp = temperature.map(t => f", $t%.1f°C").getOrElse("")
+        // Wymuszenie kropki jako separatora
+        val temp = temperature.map(t => String.format(Locale.US, ", %.1f°C", t)).getOrElse("")
         s" | pogoda: $w$temp"
       case None => ""
     }
