@@ -139,7 +139,6 @@ class AddEventDialog(initialDate: LocalDate) extends Dialog[CalendarEvent] {
       eH.style = resetTimeStyle + errorInputStyle
     }
 
-    // ZMIANA 4: Jeśli formularz jest ok, łączymy się z API Mikołaja!
     if (isValid) {
       CityService.resolveCity(cityField.text.value.trim) match {
         case Right(city) => 

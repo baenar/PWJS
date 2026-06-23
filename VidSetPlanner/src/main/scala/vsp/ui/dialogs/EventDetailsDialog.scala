@@ -14,9 +14,9 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
   private var currentEvent = initialEvent
 
   title = "Event Details"
-  headerText = "" // Usuwamy domyślny nagłówek dla estetyki
+  headerText = ""
 
-  // --- STYLE WIZUALNE (Jak w AddEventDialog) ---
+  // --- STYLE WIZUALNE ---
   private val labelStyle = "-fx-text-fill: #374151; -fx-font-size: 13px; -fx-font-weight: bold;"
   private val inputBaseStyle = "-fx-background-color: white; -fx-border-color: #d1d5db; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;"
   private val errorInputStyle = "-fx-border-color: #ef4444; -fx-border-width: 1.5;"
@@ -52,6 +52,7 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
 
   // --- POLA EDYCJI ---
   val titleInput = new TextField { style = inputBaseStyle }
+  val locationInput = new TextField { style = inputBaseStyle } // Zmieniono na edytowalne pole
   val descInput  = new TextArea { prefRowCount = 3; wrapText = true; style = inputBaseStyle + "-fx-padding: 5;" }
   val datePicker = new DatePicker { maxWidth = Double.MaxValue; style = inputBaseStyle }
   
@@ -87,13 +88,11 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
     saveBtn.visible = false; saveBtn.managed = false
     cancelBtn.visible = false; cancelBtn.managed = false
 
-    // 1. Sekcja lewa (Tytuł i Miasto)
     val titleBox = new VBox(4,
       new Label(currentEvent.title) { style = "-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;" },
       new Label(s"📍 ${currentEvent.city.name}") { style = "-fx-font-size: 13px; -fx-text-fill: #6b7280; -fx-font-weight: 500;" }
     )
 
-    // 2. Sekcja prawa (Wielka pogoda + Tooltip)
     val weatherBox = currentEvent.weather match {
       case Some(w) =>
         val iconView = WeatherIconUtil.getWeatherIcon(w, 48.0)
@@ -104,8 +103,6 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
           style = "-fx-font-size: 13px; -fx-background-color: rgba(17, 24, 39, 0.9);"
         }
 
-        // Najłatwiejszym sposobem na przypięcie dymku Tooltip i cienia do grafiki
-        // jest opakowanie jej w czysty (pusty) Label.
         val iconLabel = new Label {
           graphic = iconView
           tooltip = weatherTooltip
@@ -126,18 +123,16 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
       case None => None
     }
 
-    // 3. Łączymy górę za pomocą "sprężyny" (Region), która rozpycha na boki
     val spacer = new Region { hgrow = Priority.Always }
     
     val topHeader = new HBox {
       alignment = Pos.TopLeft
       children = weatherBox match {
-        case Some(wBox) => Seq(titleBox, spacer, wBox) // Jeśli jest pogoda, wrzuć ją na prawo
-        case None       => Seq(titleBox)               // Jeśli nie, zostaw sam tytuł
+        case Some(wBox) => Seq(titleBox, spacer, wBox)
+        case None       => Seq(titleBox)
       }
     }
 
-    // 4. Podstawowe wiersze (data, czas)
     val infoRows = Seq(
       new HBox(12,
         new Label("📅") { style = "-fx-font-size: 18px;" },
@@ -149,14 +144,11 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
       )
     )
 
-    // 5. Składamy to w jedną całość
     mainLayout.children.clear()
     mainLayout.children = Seq(
-      topHeader, // Nasz nowy, wspaniały pasek z tytułem po lewej i pogodą po prawej!
-      new Separator { padding = Insets(5, 0, 5, 0) }, // Subtelna linia oddzielająca
-      
+      topHeader,
+      new Separator { padding = Insets(5, 0, 5, 0) },
       new VBox(10) { children = infoRows },
-      
       new Region { prefHeight = 10 },
       new VBox(6, 
         new Label("Description") { style = labelStyle },
@@ -179,11 +171,13 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
     errorLabel.visible = false
     errorLabel.managed = false
     titleInput.style = inputBaseStyle
+    locationInput.style = inputBaseStyle
     datePicker.style = inputBaseStyle
     val resetTimeStyle = inputBaseStyle + "-fx-pref-width: 80;"
     sH.style = resetTimeStyle; sM.style = resetTimeStyle; eH.style = resetTimeStyle; eM.style = resetTimeStyle
 
     titleInput.text = currentEvent.title
+    locationInput.text = currentEvent.city.name
     descInput.text = currentEvent.description
     datePicker.value = currentEvent.startTime.toLocalDate
     
@@ -200,12 +194,7 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
         new VBox(6, new Label("Start Time") { style = labelStyle }, new HBox(5, sH, new Label(":") { alignment = Pos.Center; style = "-fx-font-weight: bold; -fx-padding: 5 0 0 0;" }, sM)),
         new VBox(6, new Label("End Time") { style = labelStyle }, new HBox(5, eH, new Label(":") { alignment = Pos.Center; style = "-fx-font-weight: bold; -fx-padding: 5 0 0 0;" }, eM))
       ),
-      new VBox(6, new Label("Location") { style = labelStyle }, 
-        new Label(currentEvent.city.name) { 
-          style = inputBaseStyle + "-fx-background-color: #f3f4f6; -fx-text-fill: #6b7280;" // Szare pole read-only
-          maxWidth = Double.MaxValue
-        }
-      ),
+      new VBox(6, new Label("Location") { style = labelStyle }, locationInput),
       new VBox(6, new Label("Description") { style = labelStyle }, descInput),
       errorLabel
     )
@@ -217,12 +206,11 @@ class EventDetailsDialog(initialEvent: CalendarEvent, onUpdate: () => Unit = () 
     e.consume()
   })
 
-cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    // 1. ZAWSZE zatrzymujemy domyślne zamknięcie całego okna EventDetailsDialog
+  cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     e.consume()
 
-    // 2. Sprawdzamy, czy użytkownik zmienił jakiekolwiek dane
     val isFormDirty = titleInput.text.value != currentEvent.title || 
+                      locationInput.text.value != currentEvent.city.name ||
                       descInput.text.value != currentEvent.description || 
                       datePicker.value.value != currentEvent.startTime.toLocalDate ||
                       sH.value.value != currentEvent.startTime.getHour || 
@@ -241,23 +229,19 @@ cancelBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.Actio
       val result = confirmationAlert.showAndWait()
       result match {
         case Some(ButtonType.OK) =>
-          // Użytkownik godzi się na utratę zmian -> wyłączamy tryb edycji
           showViewMode() 
         case _ =>
-          // Użytkownik kliknął Cancel w małym okienku -> NIE robimy showViewMode(), 
-          // dzięki czemu zostaje w trybie edycji i może dalej pisać
       }
     } else {
-      // Jeśli formularz nie był "brudny" (nic nie zmieniono), od razu wyłączamy tryb edycji bez pytań
       showViewMode()
     }
   })
 
 saveBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
-    // 1. ZAWSZE blokujemy domyślne zamykanie okna przez ten przycisk!
     e.consume()
 
     titleInput.style = inputBaseStyle
+    locationInput.style = inputBaseStyle
     datePicker.style = inputBaseStyle
     val resetTimeStyle = inputBaseStyle + "-fx-pref-width: 80;"
     sH.style = resetTimeStyle; sM.style = resetTimeStyle; eH.style = resetTimeStyle; eM.style = resetTimeStyle
@@ -279,6 +263,10 @@ saveBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionE
       isValid = false
       errorMsg = "Title is required"
       titleInput.style = inputBaseStyle + errorInputStyle
+    } else if (locationInput.text.value.trim.isEmpty) {
+      isValid = false
+      errorMsg = "Location is required"
+      locationInput.style = inputBaseStyle + errorInputStyle
     } else if (startDateTime.isBefore(LocalDateTime.now()) && currentEvent.startTime.isAfter(LocalDateTime.now())) {
       isValid = false
       errorMsg = "Cannot move a future event to the past"
@@ -294,42 +282,101 @@ saveBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionE
       errorLabel.text = errorMsg
       errorLabel.visible = true
       errorLabel.managed = true
-      // Nie musimy już dawać tutaj e.consume(), bo zrobiliśmy to na samej górze
     } else {
-      try {
+      val typedCityName = locationInput.text.value.trim
+      
+      val cityChanged = typedCityName != currentEvent.city.name
+      val timeChanged = startDateTime != currentEvent.startTime
+
+      if (cityChanged) {
+        // 1. ZMIENIONO MIASTO -> Szukamy nowych koordynatów i WYMUSZAMY nową pogodę
+        import vsp.core.CityService
+        CityService.resolveCity(typedCityName) match {
+          case Right(newCity) =>
+             // Zauważ 'None' na końcu - to wymusza świeże pobranie z API
+             val weatherResult = vsp.api.WeatherClient.getWeatherByCityAndDate(newCity, startDateTime, None)
+             
+             val (updatedWeather, updatedTemp, updatedLastUpdate) = weatherResult match {
+               case vsp.api.WeatherResult.Fetched(w, t, at) => (Some(w), Some(t), Some(at))
+               case _ => (None, None, None) 
+             }
+
+             val updated = currentEvent.copy(
+               title = titleInput.text.value.trim,
+               city = newCity,
+               description = descInput.text.value.trim,
+               startTime = startDateTime,
+               endTime = endDateTime,
+               weather = updatedWeather,
+               temperature = updatedTemp,
+               lastWeatherUpdate = updatedLastUpdate
+             )
+
+             saveUpdatedEvent(updated)
+
+          case Left(_) =>
+            errorLabel.text = s"Could not find city '$typedCityName'. Please check spelling."
+            errorLabel.visible = true
+            errorLabel.managed = true
+            locationInput.style = inputBaseStyle + errorInputStyle
+        }
+      } else if (timeChanged) {
+        // 2. ZMIENIONO TYLKO CZAS -> Miasto to samo, ale WYMUSZAMY nową pogodę dla nowej daty
+        val weatherResult = vsp.api.WeatherClient.getWeatherByCityAndDate(currentEvent.city, startDateTime, None)
+             
+        val (updatedWeather, updatedTemp, updatedLastUpdate) = weatherResult match {
+          case vsp.api.WeatherResult.Fetched(w, t, at) => (Some(w), Some(t), Some(at))
+          // Jeśli API zgłosi błąd, zostawiamy starą pogodę (na wszelki wypadek)
+          case _ => (currentEvent.weather, currentEvent.temperature, currentEvent.lastWeatherUpdate)
+        }
+
         val updated = currentEvent.copy(
           title = titleInput.text.value.trim,
           description = descInput.text.value.trim,
           startTime = startDateTime,
-          endTime = endDateTime
+          endTime = endDateTime,
+          weather = updatedWeather,
+          temperature = updatedTemp,
+          lastWeatherUpdate = updatedLastUpdate
         )
-
-        vsp.core.CalendarEventService.updateEvent(updated) match {
-          case Right(_) =>
-            currentEvent = updated 
-            showViewMode() // Wracamy do trybu podglądu (okno zostaje otwarte)     
-            onUpdate()             
-          case Left(err) => 
-            errorLabel.text = s"Database Error: $err"
-            errorLabel.visible = true
-            errorLabel.managed = true
-        }
-      } catch { 
-        case _: Exception => 
-          errorLabel.text = "Unexpected error while saving."
-          errorLabel.visible = true
-          errorLabel.managed = true
+        
+        saveUpdatedEvent(updated)
+      } else {
+        // 3. ZMIENIONO TYLKO TYTUŁ LUB OPIS -> Zostawiamy starą pogodę i lokalizację w spokoju
+        val updated = currentEvent.copy(
+          title = titleInput.text.value.trim,
+          description = descInput.text.value.trim
+        )
+        saveUpdatedEvent(updated)
       }
     }
   })
+
+  private def saveUpdatedEvent(updatedEvent: CalendarEvent): Unit = {
+    try {
+      vsp.core.CalendarEventService.updateEvent(updatedEvent) match {
+        case Right(_) =>
+          currentEvent = updatedEvent 
+          showViewMode()     
+          onUpdate()             
+        case Left(err) => 
+          errorLabel.text = s"Database Error: $err"
+          errorLabel.visible = true
+          errorLabel.managed = true
+      }
+    } catch { 
+      case _: Exception => 
+        errorLabel.text = "Unexpected error while saving."
+        errorLabel.visible = true
+        errorLabel.managed = true
+    }
+  }
 
   deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, (e: javafx.event.ActionEvent) => {
     val confirmationAlert = new Alert(Alert.AlertType.Confirmation) {
       title = "Confirm Deletion"
       headerText = ""
       contentText = s"Do you really want to delete '${currentEvent.title}'?\nThis action cannot be undone."
-      
-      // Styling okna dialogowego alertu, żeby też pasował
       dialogPane().style = "-fx-background-color: white; -fx-border-radius: 12; -fx-background-radius: 12;"
     }
 
