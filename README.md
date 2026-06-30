@@ -20,6 +20,40 @@ Aplikacja została podzielona na niezależne moduły, aby ułatwić testowanie i
 3. **Moduł API (Integracje):** Warstwa odpowiedzialna za komunikację sieciową - odpytywanie REST API o pogodę (docelowo parsowanie danych z kalendarzy Google/Apple).
 4. **Moduł Persystencji (Dane):** Zarządzanie lokalnym zapisem i odczytem zaplanowanych wydarzeń (do lokalnej bazy danych).
 
+## Uruchomienie Projektu
+Wymagania do uruchomienia lokalnego:
+* JDK 21,
+* sbt 1.10.x.
+
+Wejście do katalogu aplikacji:
+```bash
+cd VidSetPlanner
+```
+
+Uruchomienie testów:
+```bash
+sbt test
+```
+
+Kompilacja projektu:
+```bash
+sbt compile
+```
+
+Uruchomienie aplikacji:
+```bash
+sbt run
+```
+
+Projekt można też uruchamiać przez Dockera, bez instalowania sbt lokalnie:
+```bash
+docker compose run --rm test
+docker compose run --rm compile
+docker compose run --rm shell
+```
+
+Przykładowa konfiguracja środowiska znajduje się w pliku `.env.example`. Można tam ustawić m.in. dane do Google Calendar oraz opcjonalny URL bazy SQLite przez `VSP_DB_URL`.
+
 ## Zespół i Podział Obowiązków
 * **Osoba 1:** * Integracja z zewnętrznym API pogodowym (komunikacja HTTP, parsowanie JSON).
   * Moduł persystencji danych (zapis/odczyt wydarzeń).

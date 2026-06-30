@@ -1,43 +1,55 @@
 services:
   test:
-    image: maven:3-eclipse-temurin-21
+    build: .
     working_dir: /workspace
     volumes:
       - .:/workspace
-      - maven-cache:/root/.m2
-    command: ["mvn", "test"]
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
+    command: ["sbt", "test"]
 
   clean-test:
-    image: maven:3-eclipse-temurin-21
+    build: .
     working_dir: /workspace
     volumes:
       - .:/workspace
-      - maven-cache:/root/.m2
-    command: ["mvn", "clean", "test"]
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
+    command: ["sbt", "clean", "test"]
 
   compile:
-    image: maven:3-eclipse-temurin-21
+    build: .
     working_dir: /workspace
     volumes:
       - .:/workspace
-      - maven-cache:/root/.m2
-    command: ["mvn", "clean", "compile"]
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
+    command: ["sbt", "compile"]
 
   package:
-    image: maven:3-eclipse-temurin-21
+    build: .
     working_dir: /workspace
     volumes:
       - .:/workspace
-      - maven-cache:/root/.m2
-    command: ["mvn", "clean", "package"]
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
+    command: ["sbt", "package"]
 
   shell:
-    image: maven:3-eclipse-temurin-21
+    build: .
     working_dir: /workspace
     volumes:
       - .:/workspace
-      - maven-cache:/root/.m2
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
     command: ["bash"]
 
 volumes:
-  maven-cache:
+  sbt-cache:
+  ivy-cache:
+  coursier-cache:
